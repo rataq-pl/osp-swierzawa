@@ -26,7 +26,7 @@
                                 @endphp
                             <div class="col-md-4 col-sm-6 col-lg-4 wpisBlog">
                                 <div class="blg-bx">
-                                    <div class="blg-thmb" style="height: 250px; background:url({{$wpis -> zdjecie}}) no-repeat; background-size:cover;"></div>
+                                    <div class="blg-thmb" style="height: 250px; background:url({{$wpis->zdjecie}}) no-repeat; background-size:cover;" loading="lazy"></div>
                                     <div class="blg-inf">
                                         <h6 itemprop="headline"><a href="/b/{{$wpis -> url}}" title="{{$wpis -> tytul}}" itemprop="url">{{$wpis -> tytul}}</a></h6>
                                         <ul class="pst-mta">

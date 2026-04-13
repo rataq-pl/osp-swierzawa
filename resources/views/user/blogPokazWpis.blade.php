@@ -102,7 +102,7 @@
 
                                 <div class="event-detail-img brd-rd5">
 
-                                    <img src="{{$q -> zdjecie}}" alt="{{$q -> tytul}} - OSP Świerzawa" itemprop="image" style="width:100%;">
+                                    <img src="{{$q->zdjecie}}" alt="{{$q->tytul}} - OSP Swieriawa" itemprop="image" style="width:100%;" loading="lazy">
 
                                 </div>
 
@@ -174,7 +174,7 @@
 
                                             <li>
 
-                                                <img src="{{$fota -> url}}" class="col-md-12"/>
+                                                <img src="{{$fota->url}}" class="col-md-12" loading="lazy"/>
 
                                             </li>
 
@@ -264,7 +264,7 @@
 
                                         <div class="blg-bx">
 
-                                            <div class="blg-thmb"><a href="/b/{{$item -> url}}" title="{{$item -> zdjecie}}" itemprop="url"><img src="{{$item -> zdjecie}}" alt="{{$item -> tytul}} - OSP Świerzawa" itemprop="image" style="width:100%;"></a></div>
+                                            <div class="blg-thmb"><a href="/b/{{$item->url}}" title="{{$item->zdjecie}}" itemprop="url"><img src="{{$item->zdjecie}}" alt="{{$item->tytul}} - OSP Swieriawa" itemprop="image" style="width:100%;" loading="lazy"></a></div>
 
                                             <div class="blg-inf">
 
@@ -306,7 +306,7 @@
 
                                         <div class="blg-bx">
 
-                                            <div class="blg-thmb"><a href="/konkurs/{{$item -> url}}" title="{{$item -> zdjecie}}" itemprop="url"><img src="{{$item -> zdjecie}}" alt="{{$item -> tytul}} - OSP Świerzawa" itemprop="image" style="width:100%;"></a></div>
+                                            <div class="blg-thmb"><a href="/konkurs/{{$item->url}}" title="{{$item->zdjecie}}" itemprop="url"><img src="{{$item->zdjecie}}" alt="{{$item->tytul}} - OSP Swieriawa" itemprop="image" style="width:100%;" loading="lazy"></a></div>
 
                                             <div class="blg-inf">
 

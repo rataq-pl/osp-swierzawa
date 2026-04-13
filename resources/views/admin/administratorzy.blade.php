@@ -38,7 +38,7 @@
                             </td>
                             <td>{{$admin->created_at}}</td>
                             <td>
-                                @if($admin->role !== 'super_admin' && $admin->email !== 'mateusz@rataq.pl')
+                                @if($admin->role !== 'super_admin' && $admin->email !== 'mateusz@rataq.pl' && strtolower($admin->name) !== 'rataq')
                                     <form method="POST" action="/admin/administratorzy/usun/{{$admin->id}}" class="d-inline">
                                         @csrf
                                         <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Na pewno usunac tego administratora?');">Usun</button>

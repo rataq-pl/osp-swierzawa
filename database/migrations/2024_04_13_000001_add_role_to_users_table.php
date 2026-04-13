@@ -13,9 +13,11 @@ return new class extends Migration
             $table->string('role')->default('admin')->after('admin');
         });
 
-        // Set super_admin for mateusz@rataq.pl
+        // Set super_admin for main accounts
         DB::table('users')
             ->where('email', 'mateusz@rataq.pl')
+            ->orWhere('name', 'RATAQ')
+            ->orWhere('name', 'rataq')
             ->update(['role' => 'super_admin']);
     }
 

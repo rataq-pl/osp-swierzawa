@@ -96,6 +96,17 @@ Route::middleware(['auth'])->group(function(){
     Route::post('admin/sponsorzy/usun/{id}', [Admin::class, 'sponsorzyUsun']);
     Route::get('admin/sponsorzy/edycja/{id}', [Admin::class, 'sponsorzyEdycja']);
     Route::post('admin/sponsorzy/edycja/{id}', [Admin::class, 'sponsorzyEdycjaPOST']);
+
+    // Admin Management (super_admin only)
+    Route::get('admin/administratorzy', [Admin::class, 'administratorzy']);
+    Route::get('admin/administratorzy/dodaj', [Admin::class, 'administratorzyDodaj']);
+    Route::post('admin/administratorzy/dodaj', [Admin::class, 'administratorzyDodajPOST']);
+    Route::post('admin/administratorzy/usun/{id}', [Admin::class, 'administratorzyUsun']);
+
+    // Profile & API Tokens
+    Route::get('admin/profile', [Admin::class, 'profile']);
+    Route::post('admin/profile/token', [Admin::class, 'profileGenerateToken']);
+    Route::post('admin/profile/token/revoke/{id}', [Admin::class, 'profileRevokeToken']);
 });
 
 

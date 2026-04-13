@@ -94,9 +94,15 @@
       <li class="nav-item">
         <a class="nav-link" href="/admin/wspierajacy"> <span class="sr-only">Wspierający</span></a>
       </li>
+      @if(request()->user() && request()->user()->role === 'super_admin')
+      <li class="nav-item">
+        <a class="nav-link" href="/admin/administratorzy">Administratorzy</a>
+      </li>
+      @endif
     </ul>
     <form class="form-inline my-2 my-lg-0">
-      <a href="/admin/zmien-haslo" class="btn btn-danger my-2 my-sm-0">Zmień hasło</a>
+      <a href="/admin/profile" class="btn btn-info my-2 my-sm-0 mr-2">Profil / API</a>
+      <a href="/admin/zmien-haslo" class="btn btn-danger my-2 my-sm-0 mr-2">Zmień hasło</a>
       <a href="/admin/wyloguj" class="btn btn-secondary my-2 my-sm-0">Wyloguj</a>
     </form>
   </div>

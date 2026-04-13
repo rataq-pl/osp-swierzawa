@@ -640,4 +640,152 @@ public function generateImage($img){
     $file = '/'.$file;
     return ($file);
 }
+
+    // ========== ADMIN MANAGEMENT ==========
+
+    public function administratorzy()
+    {
+        $user = request()->user();
+        if ($user->role !== 'super_admin') {
+            return redirect('/admin')->with('komunikat', Admin::komunikat('danger', 'Brak uprawnien!', 'Tylko Super Administrator ma dostep do tej sekcji.'));
+        }
+
+        return view('admin.administratorzy', [
+            'administratorzy' => DB::table('users')->where('admin', 1)->orderByDesc('id')->get(),
+            'komunikat' => session('komunikat')
+        ]);
+    }
+
+    public function administratorzyDodaj()
+    {
+        $user = request()->user();
+        if ($user->role !== 'super_admin') {
+            return redirect('/admin')->with('komunikat', Admin::komunikat('danger', 'Brak uprawnien!', null));
+        }
+
+        return view('admin.administratorzyDodaj', [
+            'komunikat' => session('komunikat')
+        ]);
+    }
+
+    public function administratorzyDodajPOST(Request $request)
+    {
+        $user = request()->user();
+        if ($user->role !== 'super_admin') {
+            return redirect('/admin');
+        }
+
+        // Validation
+        if (empty($request->get('name')) || empty($request->get('email')) || empty($request->get('password'))) {
+            $komunikat = Admin::komunikat('danger', 'Blad!', 'Wszystkie pola sa wymagane.');
+            return back()->with('komunikat', $komunikat);
+        }
+
+        // Check if email exists
+        $exists = DB::table('users')->where('email', $request->get('email'))->first();
+        if ($exists) {
+            $komunikat = Admin::komunikat('danger', 'Blad!', 'Podany adres e-mail juz istnieje w bazie.');
+            return back()->with('komunikat', $komunikat);
+        }
+
+        DB::table('users')->insert([
+            'name' => $request->get('name'),
+            'email' => $request->get('email'),
+            'password' => Hash::make($request->get('password')),
+            'imie' => $request->get('imie'),
+            'nazwisko' => $request->get('nazwisko'),
+            'admin' => 1,
+            'role' => $request->get('role', 'admin'),
+            'created_at' => now(),
+            'updated_at' => now()
+        ]);
+
+        $komunikat = Admin::komunikat('success', 'Dodano!', 'Nowy administrator zostal dodany do systemu.');
+        return redirect('/admin/administratorzy')->with('komunikat', $komunikat);
+    }
+
+    public function administratorzyUsun($id)
+    {
+        $user = request()->user();
+        if ($user->role !== 'super_admin') {
+            return redirect('/admin');
+        }
+
+        $admin = DB::table('users')->where('id', $id)->first();
+
+        // Protect super_admin and main email
+        if ($admin->role === 'super_admin' || $admin->email === 'mateusz@rataq.pl') {
+            $komunikat = Admin::komunikat('danger', 'Blad!', 'Nie mozna usunac konta Super Administratora.');
+            return redirect('/admin/administratorzy')->with('komunikat', $komunikat);
+        }
+
+        if ($admin->id == $user->id) {
+            $komunikat = Admin::komunikat('danger', 'Blad!', 'Nie mozesz usunac wlasnego konta.');
+            return redirect('/admin/administratorzy')->with('komunikat', $komunikat);
+        }
+
+        // Delete tokens first
+        DB::table('personal_access_tokens')
+            ->where('tokenable_type', 'App\\Models\\User')
+            ->where('tokenable_id', $id)
+            ->delete();
+
+        DB::table('users')->where('id', $id)->delete();
+
+        $komunikat = Admin::komunikat('warning', 'Usunieto!', 'Administrator zostal usuniety z systemu.');
+        return redirect('/admin/administratorzy')->with('komunikat', $komunikat);
+    }
+
+    // ========== PROFILE & API TOKENS ==========
+
+    public function profile()
+    {
+        $user = request()->user();
+        $tokens = DB::table('personal_access_tokens')
+            ->where('tokenable_type', 'App\\Models\\User')
+            ->where('tokenable_id', $user->id)
+            ->orderByDesc('created_at')
+            ->get();
+
+        return view('admin.profile', [
+            'user' => $user,
+            'tokens' => $tokens,
+            'komunikat' => session('komunikat'),
+            'newToken' => session('newToken')
+        ]);
+    }
+
+    public function profileGenerateToken(Request $request)
+    {
+        $user = request()->user();
+        $name = $request->get('token_name', 'API Token');
+        $abilities = $request->get('abilities', []);
+
+        if (empty($abilities)) {
+            $komunikat = Admin::komunikat('danger', 'Blad!', 'Musisz wybrac przynajmniej jedno uprawnienie.');
+            return back()->with('komunikat', $komunikat);
+        }
+
+        // Generate token using Sanctum
+        $userModel = \App\Models\User::find($user->id);
+        $token = $userModel->createToken($name, $abilities);
+        $plainTextToken = $token->plainTextToken;
+
+        $komunikat = Admin::komunikat('success', 'Token utworzony!', 'Skopiuj token ponizej. Nie bedzie mozna go ponownie wyswietlic.');
+        return back()->with('komunikat', $komunikat)->with('newToken', $plainTextToken);
+    }
+
+    public function profileRevokeToken($tokenId)
+    {
+        $user = request()->user();
+
+        DB::table('personal_access_tokens')
+            ->where('id', $tokenId)
+            ->where('tokenable_type', 'App\\Models\\User')
+            ->where('tokenable_id', $user->id)
+            ->delete();
+
+        $komunikat = Admin::komunikat('warning', 'Usunieto!', 'Token API zostal uniewaziony.');
+        return back()->with('komunikat', $komunikat);
+    }
 }

@@ -1,0 +1,5 @@
+# Przekierowanie do public (dla serwerów bez możliwości ustawienia document root)
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule ^(.*)$ public/$1 [L]
+</IfModule>

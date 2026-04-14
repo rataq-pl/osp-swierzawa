@@ -551,21 +551,54 @@ class Admin extends Controller
         return redirect(route('login'))->with('komunikat', $komunikat);
     }
     public function glowna(){
-        // Statystyki
-        $artykuly = DB::table('aktualnosci')->count();
-        $artykulyOstatnie = DB::table('aktualnosci')->orderByDesc('id')->limit(5)->get();
+        // Statystyki - z obsluga bledow dla brakujacych tabel
+        try {
+            $artykuly = DB::table('aktualnosci')->count();
+            $artykulyOstatnie = DB::table('aktualnosci')->orderByDesc('id')->limit(5)->get();
+        } catch (\Exception $e) {
+            $artykuly = 0;
+            $artykulyOstatnie = collect([]);
+        }
 
-        $dokumenty = DB::table('dokumenty')->count();
-        $dokumentyOstatnie = DB::table('dokumenty')->orderByDesc('id')->limit(5)->get();
+        try {
+            $dokumenty = DB::table('dokumenty')->count();
+            $dokumentyOstatnie = DB::table('dokumenty')->orderByDesc('id')->limit(5)->get();
+        } catch (\Exception $e) {
+            $dokumenty = 0;
+            $dokumentyOstatnie = collect([]);
+        }
 
-        $sponsorzy = DB::table('sponsorzy')->count();
-        $sponsorzyLista = DB::table('sponsorzy')->orderByDesc('id')->limit(5)->get();
+        try {
+            $sponsorzy = DB::table('sponsorzy')->count();
+            $sponsorzyLista = DB::table('sponsorzy')->orderByDesc('id')->limit(5)->get();
+        } catch (\Exception $e) {
+            $sponsorzy = 0;
+            $sponsorzyLista = collect([]);
+        }
 
-        $testy = DB::table('testy')->count();
-        $uzytkownicy = DB::table('users')->where('admin', 1)->count();
+        try {
+            $testy = DB::table('testy')->count();
+        } catch (\Exception $e) {
+            $testy = 0;
+        }
 
-        $video = DB::table('aktualnosciWideo')->count();
-        $zdjecia = DB::table('aktualnosciZdjecia')->count();
+        try {
+            $uzytkownicy = DB::table('users')->where('admin', 1)->count();
+        } catch (\Exception $e) {
+            $uzytkownicy = 0;
+        }
+
+        try {
+            $video = DB::table('aktualnosciWideo')->count();
+        } catch (\Exception $e) {
+            $video = 0;
+        }
+
+        try {
+            $zdjecia = DB::table('aktualnosci_zdjecia')->count();
+        } catch (\Exception $e) {
+            $zdjecia = 0;
+        }
 
         return view('admin/glowna', [
             'artykuly' => $artykuly,

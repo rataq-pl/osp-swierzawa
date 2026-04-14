@@ -180,16 +180,17 @@
                             <thead>
                                 <tr>
                                     <th>Nazwa</th>
+                                    <th>Opis</th>
                                     <th>Akcje</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 @foreach($dokumentyOstatnie as $dok)
                                 <tr>
-                                    <td>{{ Str::limit($dok->nazwa, 50) }}</td>
+                                    <td>{{ Str::limit($dok->nazwa, 35) }}</td>
+                                    <td><small class="text-muted">{{ Str::limit($dok->opis ?? '', 30) }}</small></td>
                                     <td>
-                                        <a href="/admin/dokumenty/edytuj/{{ $dok->id }}" class="btn btn-xs btn-outline-success"><i class="fas fa-edit"></i></a>
-                                        <a href="{{ $dok->url }}" target="_blank" class="btn btn-xs btn-outline-secondary"><i class="fas fa-download"></i></a>
+                                        <a href="/admin/dokumenty" class="btn btn-xs btn-outline-success"><i class="fas fa-eye"></i></a>
                                     </td>
                                 </tr>
                                 @endforeach

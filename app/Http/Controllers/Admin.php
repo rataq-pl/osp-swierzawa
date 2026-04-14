@@ -551,8 +551,33 @@ class Admin extends Controller
         return redirect(route('login'))->with('komunikat', $komunikat);
     }
     public function glowna(){
-        return view('admin/glowna', [
+        // Statystyki
+        $artykuly = DB::table('aktualnosci')->count();
+        $artykulyOstatnie = DB::table('aktualnosci')->orderByDesc('id')->limit(5)->get();
 
+        $dokumenty = DB::table('dokumenty')->count();
+        $dokumentyOstatnie = DB::table('dokumenty')->orderByDesc('id')->limit(5)->get();
+
+        $sponsorzy = DB::table('sponsorzy')->count();
+        $sponsorzyLista = DB::table('sponsorzy')->orderByDesc('id')->limit(5)->get();
+
+        $testy = DB::table('testy')->count();
+        $uzytkownicy = DB::table('users')->where('admin', 1)->count();
+
+        $video = DB::table('aktualnosciWideo')->count();
+        $zdjecia = DB::table('aktualnosciZdjecia')->count();
+
+        return view('admin/glowna', [
+            'artykuly' => $artykuly,
+            'artykulyOstatnie' => $artykulyOstatnie,
+            'dokumenty' => $dokumenty,
+            'dokumentyOstatnie' => $dokumentyOstatnie,
+            'sponsorzy' => $sponsorzy,
+            'sponsorzyLista' => $sponsorzyLista,
+            'testy' => $testy,
+            'uzytkownicy' => $uzytkownicy,
+            'video' => $video,
+            'zdjecia' => $zdjecia,
         ]);
     }
     public function logowaniePOST(){

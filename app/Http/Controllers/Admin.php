@@ -714,7 +714,7 @@ public function generateImage($img){
         $admin = DB::table('users')->where('id', $id)->first();
 
         // Protect super_admin and main accounts
-        if ($admin->role === 'super_admin' || $admin->email === 'mateusz@rataq.pl' || strtolower($admin->name) === 'rataq') {
+        if ($admin->role === 'super_admin' || $admin->email === 'mateusz@rataq.pl' || strtolower($admin->name) === 'rataq' || strtolower($admin->name) === 'mateusz') {
             $komunikat = Admin::komunikat('danger', 'Blad!', 'Nie mozna usunac konta Super Administratora.');
             return redirect('/admin/administratorzy')->with('komunikat', $komunikat);
         }

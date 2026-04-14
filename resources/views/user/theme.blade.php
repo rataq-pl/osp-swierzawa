@@ -240,12 +240,13 @@
     <!-- jQuery najpierw -->
     <script src="/assets/js/jquery.min.js"></script>
 
-    <!-- Pozostale skrypty z defer -->
-    <script defer src="/assets/js/bootstrap.min.js"></script>
-    <script defer src="/assets/js/bootstrap-select.min.js"></script>
-    <script defer src="/assets/js/owl.carousel.min.js"></script>
-    <script defer src="/assets/js/slick.min.js"></script>
-    <script defer src="/assets/js/custom-scripts.js"></script>
+    <!-- Krytyczne skrypty dla slajdera i video - bez defer -->
+    <script src="/assets/js/bootstrap.min.js"></script>
+    <script src="/assets/js/bootstrap-select.min.js"></script>
+    <script src="/assets/js/owl.carousel.min.js"></script>
+    <script src="/assets/js/slick.min.js"></script>
+    <script src="/assets/js/fancybox.min.js"></script>
+    <script src="/assets/js/custom-scripts.js"></script>
 
     <!-- Skrypty ladowane po zaladowaniu strony -->
     <script>
@@ -304,7 +305,6 @@
                 '/assets/js/downCount.js',
                 '/assets/js/counterup.js',
                 '/assets/js/perfect-scrollbar.min.js',
-                '/assets/js/fancybox.min.js',
                 '/assets/js/featherlight.js',
                 '/assets/js/featherlight.gallery.js',
                 '/js/rataqPLtesty.js',

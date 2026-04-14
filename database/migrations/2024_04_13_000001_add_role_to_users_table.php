@@ -18,6 +18,8 @@ return new class extends Migration
             ->where('email', 'mateusz@rataq.pl')
             ->orWhere('name', 'RATAQ')
             ->orWhere('name', 'rataq')
+            ->orWhere('name', 'Mateusz')
+            ->orWhere('name', 'mateusz')
             ->update(['role' => 'super_admin']);
     }
 

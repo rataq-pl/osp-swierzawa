@@ -262,4 +262,12 @@
         <a class="floter-911" href="#" title="" itemprop="url"><img src="/assets/images/911-icon.png" alt="911-icon.png" itemprop="image" loading="lazy" width="50" height="50"></a>
     </div>
 </section>
+
+<script src="https://ospanel.pl/widget-partner.js"
+  data-code="2TKPXTHV"
+  data-style="1"
+  data-placement="bottom-right"
+  data-desktop="15"
+  data-mobile="30"
+  data-radius="12" async></script>
 @endsection

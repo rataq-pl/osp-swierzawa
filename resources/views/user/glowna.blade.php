@@ -263,6 +263,7 @@
     </div>
 </section>
 
+{{-- Widget "Nasze OSP używa OSPanel.pl" - wyłączony na czas głosowania osp-harnas.pl
 <script src="https://ospanel.pl/widget-partner.js"
   data-code="2TKPXTHV"
   data-style="1"
@@ -270,4 +271,5 @@
   data-desktop="15"
   data-mobile="30"
   data-radius="12" async></script>
+--}}
 @endsection

@@ -502,6 +502,7 @@ class Glowna extends Controller
             'slider' => DB::table('aktualnosci')->orderByDesc('id')->limit(4)->get(),
             'kampanie' => DB::table('aktualnosci')->where('kategoria', 'Kampanie')->orderByDesc('id')->limit(12)->get(),
             'filmy' => DB::table('video')->inRandomOrder()->limit(10)->get(),
+            'ostatnieWideo' => DB::table('video')->orderByDesc('id')->first(),
             'zdarzenia' => DB::table('aktualnosci')->where('kategoria', 'LIKE', '%zdarzenia%')->orderByDesc('id')->limit(2)->get(),
             'inne' => DB::table('aktualnosci')->where('kategoria', '!=', 'ZDARZENIA')->orderByDesc('id')->limit(3)->get(),
             'statystyki' => Glowna::statystyki(),

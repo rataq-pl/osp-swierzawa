@@ -3,6 +3,16 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\V1\PingController;
 use App\Http\Controllers\Api\V1\BlogController;
+use App\Http\Controllers\Konkursy;
+use App\Http\Controllers\Glowna;
+
+// Endpointy AJAX strony (public/js/rataqPLtesty.js, public/js/wpisy.js)
+Route::post('pobierzPytania/{url}', [Konkursy::class, 'pobierzPytania']);
+Route::post('startPytan', [Konkursy::class, 'startPytan']);
+Route::post('aktualizujOdpowiedzi', [Konkursy::class, 'aktualizujOdpowiedzi']);
+Route::post('oznaczGotowy', [Konkursy::class, 'oznaczGotowy']);
+Route::post('wyslijWyniki', [Konkursy::class, 'wyslijWyniki']);
+Route::post('pobierzStarsze', [Glowna::class, 'pobierzStarsze']);
 
 // Public endpoints
 Route::prefix('v1')->group(function () {

@@ -121,7 +121,13 @@
 
 <section>
     <div class="gap theme-bg-layer opc9 hlf-parallax">
-        <div class="fixed-bg" style="background-image: url(/assets/images/parallax1.jpg);"></div>
+        @if (!empty($ostatnieWideo->miniatura))
+            <div class="fixed-bg" style="background-image: url({{$ostatnieWideo->miniatura}});"></div>
+        @elseif ($ostatnieWideo)
+            <div class="fixed-bg vdo-sec-bg">
+                <video src="{{$ostatnieWideo->url_video}}#t=1" preload="metadata" muted playsinline disablepictureinpicture tabindex="-1" aria-hidden="true"></video>
+            </div>
+        @endif
         <div class="sec-tl text-center">
             <span>Nagrania od mieszkańców i nie tylko.</span>
             <h2 itemprop="headline">Wideo, które otrzymujemy od Was</h2>
@@ -288,6 +294,8 @@
     .camp-car .owl-dot.active span{background:#f01313;width:28px;border-radius:6px;}
 
     /* Wideo - miniatury z filmu */
+    .vdo-sec-bg{overflow:hidden;background:#111;}
+    .vdo-sec-bg video{display:block;width:100%;height:100%;object-fit:cover;pointer-events:none;}
     .vdo-thmb{position:relative;aspect-ratio:16/10;background:#111;overflow:hidden;}
     .vdo-thmb img,
     .vdo-thmb video{display:block;width:100%;height:100%;object-fit:cover;pointer-events:none;}

@@ -130,7 +130,8 @@ class Konkursy extends Controller
     }
     public function pobierzPytania($url){
         $sql = DB::table('testy')->where('url', $url)->first();
-        
+        abort_if(!$sql, 404);
+
         return DB::table('testy_pytania')->where('testy_id', $sql -> id)->inRandomOrder()->limit(10)->get();
     }
     public function konkursyPokaz(){

@@ -42,12 +42,6 @@ Route::get('kontakt', [Glowna::class, 'kontakt']);
 Route::post('kontakt', [Glowna::class, 'kontaktPOST']);
 Route::get('dokumenty', [Glowna::class, 'dokumenty']);
 Route::get('polityka-prywatnosci', [Glowna::class, 'politykaPrywatnosci']);
-Route::post('pobierzPytania', [Konkursy::class, 'pobierzPytania']);
-Route::post('startPytan', [Konkursy::class, 'startPytan']);
-Route::post('aktualizujOdpowiedzi', [Konkursy::class, 'aktualizujOdpowiedzi']);
-Route::post('oznaczGotowy', [Konkursy::class, 'oznaczGotowy']);
-Route::post('wyslijWyniki', [Konkursy::class, 'wyslijWyniki']);
-Route::post('pobierzStarsze', [Glowna::class, 'pobierzStarsze']);
 Route::get('wysylkaWynikow', [Glowna::class, 'wysylkaWynikow']);
 Route::get('ranking-harnas', [Harnas::class, 'ranking']);
 

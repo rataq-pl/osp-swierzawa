@@ -6,7 +6,7 @@
             <div class="featured-car owl-carousel">
                 @foreach ($slider as $q)
                     <div class="featured-item" style="background-image: url({{$q->zdjecie}});">
-                        <div class="featured-cap" style="padding: 5%; background: rgba(0,0,0,0.4); border-radius: 25px;">
+                        <div class="featured-cap">
                             <span>{{$q->tytul}}</span>
                             <h2>{{$q->tytul}}</h2>
                             <div class="btns-grp">

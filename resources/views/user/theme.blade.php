@@ -87,6 +87,26 @@
         width:10%;
         padding:17px;
     }
+    .featured-cap{
+        max-width: min(700px, calc(100% - 32px));
+        padding: 30px 40px;
+        background: rgba(0, 0, 0, 0.4);
+        border-radius: 25px;
+    }
+    .featured-cap > h2{
+        font-size: clamp(22px, 4.2vw, 52px);
+        line-height: 1.2;
+        overflow-wrap: break-word;
+        hyphens: auto;
+    }
+    .featured-cap > h2 + .btns-grp{
+        margin-top: 20px;
+    }
+    @media (max-width: 767px){
+        .featured-cap{
+            padding: 20px;
+        }
+    }
     .harnas-tlo{
         position: fixed;
         inset: 0;
@@ -163,7 +183,7 @@
     }
     .harnas-licznik{
         position: fixed;
-        right: 16px;
+        left: 16px;
         bottom: 2%;
         z-index: 99999;
         width: 210px;
@@ -225,11 +245,11 @@
         color: #b9c3e0;
     }
     @media (max-width: 767px){
-        /* na telefonie kompaktowy pasek nad przyciskami 1,5% i Fanimani */
+        /* na telefonie kompaktowy pasek na dole ekranu */
         .harnas-licznik{
             left: 16px;
             right: 16px;
-            bottom: calc(2% + 100px);
+            bottom: 2%;
             width: auto;
             display: flex;
             align-items: center;
@@ -262,6 +282,9 @@
         .harnas-licznik-dane small{
             font-size: 9px;
             letter-spacing: 0;
+        }
+        .grecaptcha-badge{
+            visibility: hidden !important;
         }
         .harnas-licznik .harnas-btn{
             margin-left: auto;
@@ -437,6 +460,7 @@
 
     </main>
 
+    {{-- Ikonki 1,5% i Fanimani - wyłączone na czas głosowania osp-harnas.pl
     <a href="/b/wsparcie-osp-swierzawa-twoj-gest-moze-uratowac-zycie" target="_blank" rel="noopener" class="percent_">
         <img src="/1-5_procent_podatku.jpg" alt="Przekaz 1,5%" loading="lazy">
     </a>
@@ -444,6 +468,7 @@
     <a href="https://osp-swierzawa.pl/b/wspieraj-osp-swierzawa-robiac-zakupy-online-program-fanimani-pl" target="_blank" rel="noopener" class="fanimani_">
         <img src="/fanimani.png" alt="Fanimani - wspieraj OSP Swierzawa" loading="lazy">
     </a>
+    --}}
 
     <script src="/assets/js/bootstrap.min.js"></script>
     <script src="/assets/js/bootstrap-select.min.js"></script>

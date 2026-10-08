@@ -19,6 +19,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
     <link rel="shortcut icon" type="image/png" href="/assets/images/favicon.png"/>
     <link rel="stylesheet" href="/assets/css/colors/color.css" title="color" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&display=swap">
 
     <script async src="https://www.googletagmanager.com/gtag/js?id=UA-40869548-3"></script>
     <script>
@@ -85,6 +86,189 @@
     .fanimani_:hover{
         width:10%;
         padding:17px;
+    }
+    .harnas-tlo{
+        position: fixed;
+        inset: 0;
+        z-index: 999999;
+        background: rgba(0, 0, 0, 0.75);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+    }
+    .harnas-okno{
+        position: relative;
+        width: 100%;
+        max-width: 480px;
+        max-height: 100%;
+        overflow-y: auto;
+        background: #0d1630;
+        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    }
+    .harnas-okno img{
+        display: block;
+        width: 100%;
+        height: auto;
+    }
+    .harnas-zamknij{
+        position: absolute;
+        top: 8px;
+        right: 8px;
+        width: 36px;
+        height: 36px;
+        line-height: 34px;
+        text-align: center;
+        font-size: 28px;
+        color: #fff !important;
+        background: #f01313;
+        cursor: pointer;
+        z-index: 2;
+    }
+    .harnas-zamknij:hover{
+        opacity: 0.7;
+    }
+    .harnas-dol{
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 16px;
+        color: #fff;
+    }
+    .harnas-modal-dane{
+        font-size: 15px;
+        line-height: 1.4;
+    }
+    .harnas-modal-dane b{
+        color: #fdd23a;
+        font-size: 18px;
+    }
+    .harnas-btn{
+        flex-shrink: 0;
+        display: block;
+        padding: 10px 20px;
+        background: #e3312d;
+        color: #fff !important;
+        font-family: 'Anton', sans-serif;
+        font-size: 18px;
+        letter-spacing: 1px;
+        text-align: center;
+        text-transform: uppercase;
+        transition: all .3s ease;
+    }
+    .harnas-btn:hover{
+        background: #fdd23a;
+        color: #0d1630 !important;
+    }
+    .harnas-licznik{
+        position: fixed;
+        right: 16px;
+        bottom: 2%;
+        z-index: 99999;
+        width: 210px;
+        padding: 14px;
+        background: linear-gradient(160deg, #0a0f24 0%, #16224a 100%);
+        border-bottom: 4px solid #e3312d;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+        color: #fff;
+        text-align: center;
+    }
+    .harnas-tag{
+        display: inline-block;
+        padding: 2px 8px;
+        background: #e3312d;
+        font-family: 'Anton', sans-serif;
+        font-size: 11px;
+        letter-spacing: 2px;
+        text-transform: uppercase;
+    }
+    .harnas-licznik-tytul{
+        margin: 6px 0 8px;
+        font-family: 'Anton', sans-serif;
+        font-size: 24px;
+        line-height: 1.1;
+        text-transform: uppercase;
+    }
+    .harnas-licznik-tytul span{
+        color: #fdd23a;
+    }
+    .harnas-licznik-dane{
+        display: flex;
+        gap: 8px;
+        margin-bottom: 10px;
+    }
+    .harnas-licznik-dane div{
+        flex: 1;
+        padding: 6px 4px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 6px;
+    }
+    .harnas-licznik-dane b{
+        display: block;
+        color: #fdd23a;
+        font-family: 'Anton', sans-serif;
+        font-size: 26px;
+        font-weight: normal;
+        line-height: 1.1;
+    }
+    .harnas-licznik-dane small{
+        font-size: 11px;
+        color: #b9c3e0;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+    .harnas-licznik-info{
+        margin-top: 6px;
+        font-size: 11px;
+        color: #b9c3e0;
+    }
+    @media (max-width: 767px){
+        /* na telefonie kompaktowy pasek nad przyciskami 1,5% i Fanimani */
+        .harnas-licznik{
+            left: 16px;
+            right: 16px;
+            bottom: calc(2% + 100px);
+            width: auto;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px 10px;
+            text-align: left;
+        }
+        .harnas-tag, .harnas-licznik-info{
+            display: none;
+        }
+        .harnas-licznik-tytul{
+            margin: 0;
+            font-size: 15px;
+            line-height: 1.05;
+        }
+        .harnas-licznik-tytul span{
+            display: block;
+        }
+        .harnas-licznik-dane{
+            margin: 0;
+            gap: 6px;
+        }
+        .harnas-licznik-dane div{
+            padding: 2px 6px;
+            text-align: center;
+        }
+        .harnas-licznik-dane b{
+            font-size: 18px;
+        }
+        .harnas-licznik-dane small{
+            font-size: 9px;
+            letter-spacing: 0;
+        }
+        .harnas-licznik .harnas-btn{
+            margin-left: auto;
+            padding: 8px 10px;
+            font-size: 14px;
+            white-space: nowrap;
+        }
     }
 </style>
 <body itemscope>
@@ -273,6 +457,7 @@
     <script src="/js/rataqPLtesty.js"></script>
     <script src="/js/wpisy.js"></script>
     <script src="/js/rtqModal.js"></script>
+    <script src="/js/harnas.js"></script>
     <script src="/assets/js/featherlight.js"></script>
     <script src="/assets/js/featherlight.gallery.js"></script>
 

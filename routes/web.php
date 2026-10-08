@@ -7,6 +7,7 @@ use App\Http\Controllers\Glowna;
 use App\Http\Controllers\Blog;
 use App\Http\Controllers\Kontakt;
 use App\Http\Controllers\Konkursy;
+use App\Http\Controllers\Harnas;
 /*
 |--------------------------------------------------------------------------
 | Web Routes
@@ -48,6 +49,7 @@ Route::post('oznaczGotowy', [Konkursy::class, 'oznaczGotowy']);
 Route::post('wyslijWyniki', [Konkursy::class, 'wyslijWyniki']);
 Route::post('pobierzStarsze', [Glowna::class, 'pobierzStarsze']);
 Route::get('wysylkaWynikow', [Glowna::class, 'wysylkaWynikow']);
+Route::get('ranking-harnas', [Harnas::class, 'ranking']);
 
 Route::get('/osp-admin125', [Admin::class, 'logowanie'])->name('login');
 Route::post('/osp-admin125', [Admin::class, 'logowaniePOST']);

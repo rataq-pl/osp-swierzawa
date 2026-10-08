@@ -19,7 +19,7 @@ class Konkursy extends Controller
                 'testy_id' => $_POST['idTestu'],
                 'dodano' => date("Y-m-d H:i:s")
             ]);
-            //Konkursy::wysylkaWynikow();
+            app(Glowna::class)->wysylkaWynikow();
         }
             return ['status' => true];
         }

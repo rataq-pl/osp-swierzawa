@@ -28,7 +28,7 @@ class Mailing extends Controller
             $mail->Port = 587;                          // port - 587/465
             $mail->CharSet = 'UTF-8';
             
-            $mail->setFrom('powiadomienia@kortezoo.pl', 'OSP Świerzawa');
+            $mail->setFrom('powiadomienia@osp-swierzawa.pl', 'OSP Świerzawa');
             $mail->addAddress($do_kogo);
             $mail->addReplyTo('biuro@osp-swierzawa.pl', 'OSP Świerzawa');
 
@@ -38,8 +38,10 @@ class Mailing extends Controller
             $mail->Body    = $tresc;
             $mail -> send();
             // $mail->AltBody = plain text version of email body;
+            return true;
         } catch (Exception $e) {
-             echo 'Błąd';
+            \Log::error('Mailing: nie wysłano maila do '.$do_kogo.': '.$mail->ErrorInfo);
+            return false;
         }
     }
 }

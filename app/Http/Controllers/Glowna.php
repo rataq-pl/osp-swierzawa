@@ -67,7 +67,6 @@ class Glowna extends Controller
                     $nr = $nr[0];
                     array_push($odpowiedzi, $odpTeraz[1]);
                 }
-                var_dump($odpowiedzi);
                 $pytania = [];
                 for($j=0;$j<count($pytania_zadane);$j++){
                     array_push($pytania, $pytania_zadane[$j]);
@@ -126,9 +125,7 @@ class Glowna extends Controller
                 }
             }
             $tabela = $tabelaStart.$tabelaTresc.$tabelaStop;
-            $linkLogo = url()->current();
-            $linkLogo = str_replace('/api/wysylkaWynikow', '', $linkLogo);
-            $linkLogo = $linkLogo.'/assets/images/logo.png';
+            $linkLogo = url('/assets/images/logo.png');
             $html = '
                 <html>
                     <head>
@@ -152,11 +149,11 @@ class Glowna extends Controller
                     </body>
                 </html>
             ';
-            echo $html;
                 $temat = 'Twój wirtualny test wiedzy z OSP Świerzawa';
                 $do_kogo = $mail;
-                Mailing::mail($do_kogo, $temat, $html);
-            DB::table('testy_wysylka_wynikow')->where('testy_id', $idTestu)->delete();
+                if(Mailing::mail($do_kogo, $temat, $html)){
+                    DB::table('testy_wysylka_wynikow')->where('testy_id', $idTestu)->delete();
+                }
         }
         
     }

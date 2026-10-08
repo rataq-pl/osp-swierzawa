@@ -9,10 +9,17 @@
 
     var ranking = $.getJSON('/ranking-harnas');
 
-    // "2026-10-08 12:07" -> "08.10.2026, 12:07"
+    // data z serwera (ISO 8601; starsze wpisy "2026-10-08 09:53" sa w UTC) -> "08.10.2026, 11:53" w czasie polskim
     function formatujDate(data){
-        var m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}:\d{2})/.exec(data || '');
-        return m ? m[3] + '.' + m[2] + '.' + m[1] + ', ' + m[4] : '';
+        if(!data) return '';
+        if(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(data)) data = data.replace(' ', 'T') + ':00Z';
+        var d = new Date(data);
+        if(isNaN(d)) return '';
+        return d.toLocaleString('pl-PL', {
+            timeZone: 'Europe/Warsaw',
+            day: '2-digit', month: '2-digit', year: 'numeric',
+            hour: '2-digit', minute: '2-digit'
+        });
     }
 
     function wpiszRanking(okno){

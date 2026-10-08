@@ -77,7 +77,7 @@ class Harnas extends Controller
                         'glosy' => $poz['vote_count'],
                         'strona' => $strona,
                         'wszystkich' => $dane['total'] ?? null,
-                        'aktualizacja' => now('Europe/Warsaw')->format('Y-m-d H:i'),
+                        'aktualizacja' => now()->toIso8601String(),
                     ];
                 }
             }

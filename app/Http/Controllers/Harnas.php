@@ -2,8 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use Carbon\Carbon;
 use GuzzleHttp\Cookie\CookieJar;
-use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -14,22 +15,37 @@ class Harnas extends Controller
     const CO_ILE = 600; // najwyzej jedna proba pobrania na 10 min, niezaleznie od liczby odwiedzajacych
 
     // GET /ranking-harnas - pozycja OSP Swierzawa w rankingu osp-harnas.pl
+    // Wynik trzymany jest w tabeli harnas_ranking (jeden wiersz, id = 1)
     public function ranking(){
-        // Cache::add jest atomowe - tylko pierwsze zapytanie w danym oknie 10 min pobiera dane,
-        // pozostali odwiedzajacy dostaja zapamietany wynik (rowniez gdy pobranie sie nie udalo)
-        if(Cache::add('harnas_ranking_proba', now()->timestamp, self::CO_ILE)){
+        // atomowy UPDATE - tylko pierwsze zapytanie w danym oknie 10 min pobiera dane,
+        // pozostali odwiedzajacy dostaja zapisany wynik (rowniez gdy pobranie sie nie udalo)
+        $mojaProba = DB::table('harnas_ranking')
+            ->where('id', 1)
+            ->where(function($q){
+                $q->whereNull('proba')->orWhere('proba', '<', now()->subSeconds(self::CO_ILE));
+            })
+            ->update(['proba' => now()]);
+
+        if($mojaProba){
             try{
-                Cache::forever('harnas_ranking_ostatni', $this->pobierzRanking());
+                DB::table('harnas_ranking')->where('id', 1)->update($this->pobierzRanking() + ['blad' => null]);
             }catch(\Throwable $e){
                 Log::warning('Ranking Harnas: '.$e->getMessage());
+                DB::table('harnas_ranking')->where('id', 1)->update(['blad' => mb_substr($e->getMessage(), 0, 250)]);
             }
         }
 
-        $wynik = Cache::get('harnas_ranking_ostatni');
-        if(!$wynik){
-            return response()->json(['blad' => 'Brak danych'], 503);
+        $q = DB::table('harnas_ranking')->where('id', 1)->first();
+        if(!$q || !$q->pozycja){
+            return response()->json(['blad' => $q->blad ?? 'Brak danych'], 503);
         }
-        return response()->json($wynik)->header('Cache-Control', 'no-store');
+        return response()->json([
+            'pozycja' => $q->pozycja,
+            'glosy' => $q->glosy,
+            'wszystkich' => $q->wszystkich,
+            'aktualizacja' => Carbon::parse($q->aktualizacja, 'UTC')->toIso8601String(),
+            'blad' => $q->blad,
+        ])->header('Cache-Control', 'no-store');
     }
 
     // pobiera jedna strone rankingu; osp-harnas.pl przyjmuje tylko jedno zapytanie o ranking
@@ -61,8 +77,8 @@ class Harnas extends Controller
         // zaczynamy od ostatnio znanej strony; glosow tylko przybywa, wiec szukamy glownie w gore rankingu
         // (mniejsze numery stron). Najwyzej 3 strony na probe (osp-harnas.pl blokuje IP przy wiekszej liczbie zapytan);
         // jesli nie znajdziemy, kolejna proba zaczyna tam, gdzie skonczyla ta.
-        $ostatni = Cache::get('harnas_ranking_ostatni');
-        $start = Cache::get('harnas_ranking_start', $ostatni['strona'] ?? 20);
+        $q = DB::table('harnas_ranking')->where('id', 1)->first();
+        $start = $q->start ?? $q->strona ?? 20;
         $kolejnosc = array_values(array_unique(array_filter(
             [$start, $start - 1, $start + 1],
             fn($strona) => $strona >= 1
@@ -80,19 +96,19 @@ class Harnas extends Controller
             $ostatniaStrona = $dane['last_page'] ?? null;
             foreach($dane['data'] ?? [] as $poz){
                 if(mb_strtolower(trim($poz['name'])) == mb_strtolower(self::NAZWA)){
-                    Cache::forget('harnas_ranking_start');
                     return [
                         'pozycja' => $poz['position'],
                         'glosy' => $poz['vote_count'],
                         'strona' => $strona,
                         'wszystkich' => $dane['total'] ?? null,
-                        'aktualizacja' => now()->toIso8601String(),
+                        'start' => null,
+                        'aktualizacja' => now(),
                     ];
                 }
             }
         }
         $nastepny = min($kolejnosc) - 1;
-        Cache::forever('harnas_ranking_start', $nastepny >= 1 ? $nastepny : ($ostatniaStrona ?? 20));
+        DB::table('harnas_ranking')->where('id', 1)->update(['start' => $nastepny >= 1 ? $nastepny : ($ostatniaStrona ?? 20)]);
         throw new \Exception('nie znaleziono '.self::NAZWA.' na stronach '.implode(',', $kolejnosc));
     }
 }

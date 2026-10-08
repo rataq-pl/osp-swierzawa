@@ -10,7 +10,7 @@ class Harnas extends Controller
 {
     const URL = 'https://osp-harnas.pl';
     const NAZWA = 'Świerzawa';
-    const CACHE_CZAS = 600; // 10 min
+    const CACHE_CZAS = 120; // 2 min
 
     // GET /ranking-harnas - pozycja OSP Swierzawa w rankingu osp-harnas.pl
     public function ranking(){
@@ -32,7 +32,7 @@ class Harnas extends Controller
         if(!$wynik){
             return response()->json(['blad' => 'Brak danych'], 503);
         }
-        return response()->json($wynik);
+        return response()->json($wynik)->header('Cache-Control', 'no-store');
     }
 
     private function pobierzRanking(){

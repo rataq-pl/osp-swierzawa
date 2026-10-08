@@ -5,30 +5,27 @@ namespace App\Http\Controllers;
 use GuzzleHttp\Cookie\CookieJar;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class Harnas extends Controller
 {
     const URL = 'https://osp-harnas.pl';
     const NAZWA = 'Świerzawa';
-    const CACHE_CZAS = 60; // 1 min
+    const CO_ILE = 600; // najwyzej jedna proba pobrania na 10 min, niezaleznie od liczby odwiedzajacych
 
     // GET /ranking-harnas - pozycja OSP Swierzawa w rankingu osp-harnas.pl
     public function ranking(){
-        $wynik = Cache::get('harnas_ranking');
-        if(!$wynik){
+        // Cache::add jest atomowe - tylko pierwsze zapytanie w danym oknie 10 min pobiera dane,
+        // pozostali odwiedzajacy dostaja zapamietany wynik (rowniez gdy pobranie sie nie udalo)
+        if(Cache::add('harnas_ranking_proba', now()->timestamp, self::CO_ILE)){
             try{
-                $wynik = $this->pobierzRanking();
+                Cache::forever('harnas_ranking_ostatni', $this->pobierzRanking());
             }catch(\Throwable $e){
-                $wynik = null;
-            }
-            if($wynik){
-                Cache::put('harnas_ranking', $wynik, self::CACHE_CZAS);
-                Cache::forever('harnas_ranking_ostatni', $wynik);
-            }else{
-                // gdy strona Harnasia nie odpowiada - pokaz ostatni znany wynik
-                $wynik = Cache::get('harnas_ranking_ostatni');
+                Log::warning('Ranking Harnas: '.$e->getMessage());
             }
         }
+
+        $wynik = Cache::get('harnas_ranking_ostatni');
         if(!$wynik){
             return response()->json(['blad' => 'Brak danych'], 503);
         }
@@ -42,9 +39,9 @@ class Harnas extends Controller
             ->timeout(10);
 
         // API wymaga sesji i tokenu CSRF ze strony glownej
-        $html = $http->get(self::URL.'/')->body();
-        if(!preg_match('/name="csrf-token" content="([^"]+)"/', $html, $m)){
-            return null;
+        $glowna = $http->get(self::URL.'/');
+        if(!preg_match('/name="csrf-token" content="([^"]+)"/', $glowna->body(), $m)){
+            throw new \Exception('brak tokenu CSRF, strona glowna HTTP '.$glowna->status());
         }
         $token = $m[1];
 
@@ -54,16 +51,16 @@ class Harnas extends Controller
                 'Accept' => 'application/json',
                 'X-CSRF-TOKEN' => $token,
             ])->post(self::URL.'/api/ranking', ['page' => $strona, 'per_page' => 10]);
-            return $odp->successful() ? $odp->json() : null;
+            if(!$odp->successful()){
+                throw new \Exception('api/ranking HTTP '.$odp->status());
+            }
+            return $odp->json();
         };
 
         // zaczynamy od ostatnio znanej strony i szukamy na przemian w gore i w dol
         $ostatni = Cache::get('harnas_ranking_ostatni');
         $start = $ostatni['strona'] ?? 20;
         $pierwsza = $pobierzStrone($start);
-        if(!$pierwsza){
-            return null;
-        }
         $ostatniaStrona = $pierwsza['last_page'] ?? $start;
         $kolejnosc = [$start];
         for($i = 1; $i <= $ostatniaStrona; $i++){
@@ -73,9 +70,6 @@ class Harnas extends Controller
 
         foreach($kolejnosc as $strona){
             $dane = $strona == $start ? $pierwsza : $pobierzStrone($strona);
-            if(!$dane){
-                continue;
-            }
             foreach($dane['data'] ?? [] as $poz){
                 if(mb_strtolower(trim($poz['name'])) == mb_strtolower(self::NAZWA)){
                     return [
@@ -83,11 +77,11 @@ class Harnas extends Controller
                         'glosy' => $poz['vote_count'],
                         'strona' => $strona,
                         'wszystkich' => $dane['total'] ?? null,
-                        'aktualizacja' => date('Y-m-d H:i'),
+                        'aktualizacja' => now('Europe/Warsaw')->format('Y-m-d H:i'),
                     ];
                 }
             }
         }
-        return null;
+        throw new \Exception('nie znaleziono '.self::NAZWA.' w rankingu');
     }
 }

@@ -24,46 +24,65 @@ class Konkursy extends Controller
             return ['status' => true];
         }
     }
+    // Odpowiedzi zapisywane są w kolejności klikania, a nie pytań - wszystko
+    // dopasowujemy więc po numerze pytania (indeks w pytania_zadane).
+    public static function wynikiTestu($wynik){
+        $pytania = explode('----------', $wynik -> pytania_zadane);
+
+        $udzielone = [];
+        foreach(array_filter(explode(',,,,,', (string) $wynik -> odpowiedzi_udzielone)) as $wpis){
+            $wpis = explode(':::::', $wpis);
+            $odp = explode('-', $wpis[1] ?? '');
+            $udzielone[(int) $wpis[0]] = isset($odp[1]) ? (int) $odp[1] : null;
+        }
+
+        $mozliwosci = [];
+        foreach(array_filter(explode('-----', (string) $wynik -> mozliwosci_wyboru)) as $wpis){
+            $wpis = explode(':::::', $wpis, 2);
+            $mozliwosci[(int) $wpis[0]] = explode(',,,,,', $wpis[1] ?? '');
+        }
+
+        $wlasciwe = [];
+        foreach(array_filter(explode(',,,,,', (string) $wynik -> wlasciwe_odpowiedzi)) as $wpis){
+            $wpis = explode(':::::', $wpis);
+            $wlasciwe[(int) $wpis[0]] = (int) ($wpis[1] ?? -1);
+        }
+
+        $lista = [];
+        $punkty = 0;
+        foreach($pytania as $i => $pytanie){
+            $udzielona = $udzielone[$i] ?? null;
+            $prawidlowa = $wlasciwe[$i] ?? null;
+            $dobrze = $udzielona !== null && $udzielona === $prawidlowa;
+            if($dobrze){
+                $punkty++;
+            }
+            $lista[] = [
+                'pytanie' => trim($pytanie),
+                'odpowiedzi' => $mozliwosci[$i] ?? [],
+                'udzielona' => $udzielona,
+                'prawidlowa' => $prawidlowa,
+                'dobrze' => $dobrze,
+            ];
+        }
+        $naIle = count($pytania);
+
+        return [
+            'lista' => $lista,
+            'punkty' => $punkty,
+            'naIle' => $naIle,
+            'procent' => $naIle > 0 ? (int) round($punkty / $naIle * 100) : 0,
+        ];
+    }
     public function oznaczGotowy(){
         if($_POST['klucz'] == '1fa2wtteaf'){
-            $idTestu = $_POST['idTestu'];
-            $sql = DB::table('testy_wyniki')->where('id', $idTestu)->first();
-            $odpowiedziUdzielone = explode(',,,,,', $sql -> odpowiedzi_udzielone);
-            $wlasciweOdpowiedzi = explode(',,,,,', $sql -> wlasciwe_odpowiedzi);
-            $tablicaUdzielonych = [];
-            for($i=0;$i<count($odpowiedziUdzielone);$i++){
-                $teraz = explode(':::::', $odpowiedziUdzielone[$i]);
-                $odpowiedziano = explode('-', $teraz[1]);
-                $odpowiedziano = $odpowiedziano[1];
-                array_push($tablicaUdzielonych, [
-                    'numerPytania' => $teraz[0],
-                    'odpowiedziano' => $odpowiedziano
-                ]);
-            }
-            $tablicaPoprawnych = [];
-            for($i=0;$i<count($wlasciweOdpowiedzi);$i++){
-                $teraz = explode(':::::', $wlasciweOdpowiedzi[$i]);
-                array_push($tablicaPoprawnych, $teraz[1]);
-            }
-            $wszystkich = count($tablicaUdzielonych);
-            $liczymy = 0;
-            for($i=0;$i<$wszystkich;$i++){
-                if($tablicaUdzielonych[$i]['odpowiedziano'] == $tablicaPoprawnych[$i]){
-                    $liczymy++;
-                }else{
-                    $liczymy = $liczymy;
-                }
-            }
-            $procent = $liczymy / $wszystkich;
-            $procent = round($procent * 100);
-            $wynikDB = $procent.'%';
-            $wynikDB = explode('!', $wynikDB);
-            $wynikDB = $wynikDB[0];
-           
+            $sql = DB::table('testy_wyniki')->where('id', $_POST['idTestu'])->first();
+            $wyniki = Konkursy::wynikiTestu($sql);
+
             return [
-                'punkty' => $liczymy,
-                'naIle' => $wszystkich,
-                'procent' => $procent,
+                'punkty' => $wyniki['punkty'],
+                'naIle' => $wyniki['naIle'],
+                'procent' => $wyniki['procent'],
                 'mail' => $sql -> mail
             ];
         }

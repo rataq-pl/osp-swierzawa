@@ -50,112 +50,35 @@ class Glowna extends Controller
         ]);
     }
     public function wysylkaWynikow(){
-        $sql = DB::table('testy_wysylka_wynikow')->select('testy_id')->distinct()->get();
-        foreach($sql as $q){
+        $kolejka = DB::table('testy_wysylka_wynikow')->select('testy_id')->distinct()->get();
+        $wyslane = 0;
+        foreach($kolejka as $q){
             $idTestu = $q -> testy_id;
-            $sql = DB::table('testy_wyniki')->where('id', $idTestu)->first();
-            $mail = $sql -> mail;
-            $pytania_zadane = explode('----------', $sql -> pytania_zadane);
-            $odpowiedzi_udzielone = explode(',,,,,', $sql -> odpowiedzi_udzielone);
-            $mozliwosci_wyboru = explode('-----', $sql -> mozliwosci_wyboru);
-            $wlasciwe_odpowiedzi = explode(',,,,,', $sql -> wlasciwe_odpowiedzi);
-                $odpowiedzi = [];
-                for($i=0;$i<count($wlasciwe_odpowiedzi);$i++){
-                    $odpTeraz = explode(':::::', $wlasciwe_odpowiedzi[$i]);
-                    $nr = $odpTeraz[0];
-                    $nr = explode(',', $nr);
-                    $nr = $nr[0];
-                    array_push($odpowiedzi, $odpTeraz[1]);
-                }
-                $pytania = [];
-                for($j=0;$j<count($pytania_zadane);$j++){
-                    array_push($pytania, $pytania_zadane[$j]);
-                }
-                $udzielone = [];
-                for($k=0;$k<count($odpowiedzi_udzielone);$k++){
-                    array_push($udzielone, $odpowiedzi_udzielone[$k]);
-                }
-                $mozliweOdpowiedzi = [];
-                for($l=0;$l<count($mozliwosci_wyboru);$l++){
-                    $teraz = $mozliwosci_wyboru[$l];
-                    $teraz = explode(':::::', $teraz);
-                    $numer = $teraz[0];
-                    $teraz = str_replace(',,,,,', '<br />', $teraz[1]);
-                    $listaMozliwosci = '';
-                    
-                    array_push($mozliweOdpowiedzi, [
-                        $numer => $teraz
-                    ]);
-                }
-            $tabelaStart = '
-                <table style="width:100%;">
-                    <thead>
-                        <th style="background:red; border-right:solid 1px #fff; color:#fff;">Pytanie:</th>
-                        <th style="background:red; border-right:solid 1px #fff; color:#fff;">Możliwe odpowiedzi:</th>
-                        <th style="background:red; color:#fff;">Prawidłowa odpowiedź:</th>
-                        <th style="background:red; color:#fff;">Twoja odpowiedź:</th>
-                    </thead>
-                    <tbody>
-            ';
-            $tabelaStop = '
-                    </tbody>
-                </table>
-            ';
-            $tabelaTresc = '';
-            for($z=0;$z<count($pytania);$z++){
-                $prawidlowa = $odpowiedzi[$z];
-                if(isset($mozliweOdpowiedzi[$z][$z]) && $mozliweOdpowiedzi[$z][$z] != ''){
-                $sprPrawidlowa = explode('<br />', $mozliweOdpowiedzi[$z][$z]);
-                $prawidlowa = $sprPrawidlowa[$prawidlowa];
-                $udzielona = explode('-', $udzielone[$z]);
-                $udzielona = $sprPrawidlowa[$udzielona[1]];
-                if($udzielona == $prawidlowa){
-                    $kolor = 'cfffd2';
-                }else{
-                    $kolor = 'ffe9e9';
-                }
-                $tabelaTresc = $tabelaTresc.'
-                    <tr style="background:#'.$kolor.';">
-                        <td style="text-align:center; border-bottom: solid 1px red;">'.$pytania[$z].'</td>
-                        <td style="text-align:center; border-bottom: solid 1px red;">'.$mozliweOdpowiedzi[$z][$z].'</td>
-                        <td style="text-align:center; border-bottom: solid 1px red;">'.$prawidlowa.'</td>
-                        <td style="text-align:center; border-bottom: solid 1px red;">'.$udzielona.'</td>
-                    </tr>
-                ';
-                }
+            $wynik = DB::table('testy_wyniki')->where('id', $idTestu)->first();
+            if(!$wynik || $wynik -> mail == ''){
+                DB::table('testy_wysylka_wynikow')->where('testy_id', $idTestu)->delete();
+                continue;
             }
-            $tabela = $tabelaStart.$tabelaTresc.$tabelaStop;
-            $linkLogo = url('/assets/images/logo.png');
-            $html = '
-                <html>
-                    <head>
-                        <title>Twoje wyniki z testu</title>
-                    </head>
-                    <body style="padding:5% 25%;">
-                        <h5 style="text-align:left; margin-left:5%;">Miło nam, że dołączyłeś do naszych fanów!</h3>
-                        <p>
-                            W związku z testowaniem swojej wiedzy, pragniemy przesłać Ci listę pytań które nasz system zadał Ci podczas generowania ich.<br />
-                            Poniżej w układzie tabelarycznym, przedstawiamy listę pytań, możliwe odpowiedzi podczas testu oraz odpowiedzi które na nie udzieliłeś/aś. Porównaj je i postaraj się zapamiętać aby w kolejnych testach
-                            nie robić już tych samych błędów (o ile jakieś popełniłeś/aś :) ).
-                        </p>
-                        <p>Miłego, sopokojnego i przede wszystkim bezpiecznego dnia!</p>
-                        '.$tabela.'
-                        <p style="padding-top:5%; text-align:right;">
-                        <img src="'.$linkLogo.'" alt="OSP Świerzawa" style="float:right;"/>
-                        <div style="width:100%; clear:both;"></div>
-                        <h3 style="text-align:right;">Powodzenia kolejnym razem!</h3>
-                        </p>
-                        <p style="text-align:center; padding-top:10%;">Projekt wykonany przez <a href="https://rataq.pl" style="color:red; text-decoration:none;">RATAQ.PL - Tworzenie i pozycjonowanie stron internetowych</a></p>
-                    </body>
-                </html>
-            ';
-                $temat = 'Twój wirtualny test wiedzy z OSP Świerzawa';
-                $do_kogo = $mail;
-                if(Mailing::mail($do_kogo, $temat, $html)){
-                    DB::table('testy_wysylka_wynikow')->where('testy_id', $idTestu)->delete();
-                }
+            $wyniki = Konkursy::wynikiTestu($wynik);
+
+            $pierwsze = $wyniki['lista'][0]['pytanie'] ?? '';
+            $pytanie = DB::table('testy_pytania')->where('pytanie', $pierwsze)
+                ->orWhere('pytanie', 'LIKE', '%'.$pierwsze)->first();
+            $test = $pytanie ? DB::table('testy')->where('id', $pytanie -> testy_id)->first() : null;
+
+            $html = view('mail.wynikiTestu', [
+                'wyniki' => $wyniki,
+                'test' => $test,
+                'strona' => rtrim(config('app.url'), '/'),
+            ])->render();
+
+            $temat = 'Twój wynik testu wiedzy OSP Świerzawa: '.$wyniki['punkty'].'/'.$wyniki['naIle'];
+            if(Mailing::mail($wynik -> mail, $temat, $html)){
+                DB::table('testy_wysylka_wynikow')->where('testy_id', $idTestu)->delete();
+                $wyslane++;
+            }
         }
-        
+        return ['wyslane' => $wyslane];
     }
     public static function tablicaIkon(){
         $tab = [

@@ -32,46 +32,55 @@ class Harnas extends Controller
         return response()->json($wynik)->header('Cache-Control', 'no-store');
     }
 
-    private function pobierzRanking(){
+    // pobiera jedna strone rankingu; osp-harnas.pl przyjmuje tylko jedno zapytanie o ranking
+    // na sesje (kolejne konczy sie 419), dlatego kazda strona to nowa sesja
+    private function pobierzStrone($strona){
         $jar = new CookieJar();
         $http = Http::withOptions(['cookies' => $jar])
             ->withUserAgent('Mozilla/5.0 (OSP Swierzawa ranking)')
             ->timeout(10);
 
-        // API wymaga sesji i tokenu CSRF ze strony glownej
         $glowna = $http->get(self::URL.'/');
-        if(!preg_match('/name="csrf-token" content="([^"]+)"/', $glowna->body(), $m)){
-            throw new \Exception('brak tokenu CSRF, strona glowna HTTP '.$glowna->status());
+        $xsrf = $jar->getCookieByName('XSRF-TOKEN');
+        if(!$xsrf){
+            throw new \Exception('brak ciasteczka XSRF-TOKEN, strona glowna HTTP '.$glowna->status());
         }
-        $token = $m[1];
 
-        $pobierzStrone = function($strona) use ($http, $token){
-            $odp = $http->withHeaders([
-                'X-Requested-With' => 'XMLHttpRequest',
-                'Accept' => 'application/json',
-                'X-CSRF-TOKEN' => $token,
-            ])->post(self::URL.'/api/ranking', ['page' => $strona, 'per_page' => 10]);
-            if(!$odp->successful()){
-                throw new \Exception('api/ranking HTTP '.$odp->status());
-            }
-            return $odp->json();
-        };
+        $odp = $http->withHeaders([
+            'X-Requested-With' => 'XMLHttpRequest',
+            'Accept' => 'application/json',
+            'X-XSRF-TOKEN' => urldecode($xsrf->getValue()),
+        ])->post(self::URL.'/api/ranking', ['page' => $strona, 'per_page' => 10]);
+        if(!$odp->successful()){
+            throw new \Exception('api/ranking strona '.$strona.' HTTP '.$odp->status());
+        }
+        return $odp->json();
+    }
 
-        // zaczynamy od ostatnio znanej strony i szukamy na przemian w gore i w dol
+    private function pobierzRanking(){
+        // zaczynamy od ostatnio znanej strony; glosow tylko przybywa, wiec szukamy glownie w gore rankingu
+        // (mniejsze numery stron). Najwyzej 3 strony na probe (osp-harnas.pl blokuje IP przy wiekszej liczbie zapytan);
+        // jesli nie znajdziemy, kolejna proba zaczyna tam, gdzie skonczyla ta.
         $ostatni = Cache::get('harnas_ranking_ostatni');
-        $start = $ostatni['strona'] ?? 20;
-        $pierwsza = $pobierzStrone($start);
-        $ostatniaStrona = $pierwsza['last_page'] ?? $start;
-        $kolejnosc = [$start];
-        for($i = 1; $i <= $ostatniaStrona; $i++){
-            if($start - $i >= 1) $kolejnosc[] = $start - $i;
-            if($start + $i <= $ostatniaStrona) $kolejnosc[] = $start + $i;
-        }
+        $start = Cache::get('harnas_ranking_start', $ostatni['strona'] ?? 20);
+        $kolejnosc = array_values(array_unique(array_filter(
+            [$start, $start - 1, $start + 1],
+            fn($strona) => $strona >= 1
+        )));
 
+        $ostatniaStrona = null;
         foreach($kolejnosc as $strona){
-            $dane = $strona == $start ? $pierwsza : $pobierzStrone($strona);
+            if($ostatniaStrona && $strona > $ostatniaStrona){
+                continue;
+            }
+            if($ostatniaStrona){
+                sleep(1);
+            }
+            $dane = $this->pobierzStrone($strona);
+            $ostatniaStrona = $dane['last_page'] ?? null;
             foreach($dane['data'] ?? [] as $poz){
                 if(mb_strtolower(trim($poz['name'])) == mb_strtolower(self::NAZWA)){
+                    Cache::forget('harnas_ranking_start');
                     return [
                         'pozycja' => $poz['position'],
                         'glosy' => $poz['vote_count'],
@@ -82,6 +91,8 @@ class Harnas extends Controller
                 }
             }
         }
-        throw new \Exception('nie znaleziono '.self::NAZWA.' w rankingu');
+        $nastepny = min($kolejnosc) - 1;
+        Cache::forever('harnas_ranking_start', $nastepny >= 1 ? $nastepny : ($ostatniaStrona ?? 20));
+        throw new \Exception('nie znaleziono '.self::NAZWA.' na stronach '.implode(',', $kolejnosc));
     }
 }

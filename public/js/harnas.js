@@ -9,10 +9,18 @@
 
     var ranking = $.getJSON('/ranking-harnas');
 
-    function wpiszRanking(miejsce, glosy){
+    // "2026-10-08 12:07" -> "08.10.2026, 12:07"
+    function formatujDate(data){
+        var m = /^(\d{4})-(\d{2})-(\d{2}) (\d{2}:\d{2})/.exec(data || '');
+        return m ? m[3] + '.' + m[2] + '.' + m[1] + ', ' + m[4] : '';
+    }
+
+    function wpiszRanking(okno){
         ranking.done(function(d){
-            miejsce.text(d.pozycja);
-            glosy.text(d.glosy);
+            okno.find('.harnas-miejsce').text(d.pozycja);
+            okno.find('.harnas-glosy').text(d.glosy);
+            var data = formatujDate(d.aktualizacja);
+            if(data) okno.find('.harnas-sync').html('Ostatnia synchronizacja: <span>' + data + '</span>');
         });
     }
 
@@ -26,9 +34,10 @@
     licznik += '</div>';
     licznik += '<a href="' + LINK + '" target="_blank" rel="noopener" class="harnas-btn">Oddaj głos</a>';
     licznik += '<div class="harnas-licznik-info">1 głos dziennie z 1 adresu e-mail</div>';
+    licznik += '<div class="harnas-sync"></div>';
     licznik += '</div>';
     $('body').append(licznik);
-    wpiszRanking($('#harnasLicznik .harnas-miejsce'), $('#harnasLicznik .harnas-glosy'));
+    wpiszRanking($('#harnasLicznik'));
 
     // modal z grafika - raz na godzine
     var ostatnio = 0;
@@ -48,13 +57,13 @@
         html += '<a class="harnas-zamknij" aria-label="Zamknij">&times;</a>';
         html += '<a href="' + LINK + '" target="_blank" rel="noopener"><img src="/OSP-Swierzawa-glosowanie-modal.jpg" alt="Zagłosuj na OSP Świerzawa - osp-harnas.pl"></a>';
         html += '<div class="harnas-dol">';
-        html += '<div class="harnas-modal-dane">Miejsce w rankingu: <b class="harnas-miejsce">–</b><br>Liczba głosów: <b class="harnas-glosy">–</b></div>';
+        html += '<div class="harnas-modal-dane">Miejsce w rankingu: <b class="harnas-miejsce">–</b><br>Liczba głosów: <b class="harnas-glosy">–</b><div class="harnas-sync"></div></div>';
         html += '<a href="' + LINK + '" target="_blank" rel="noopener" class="harnas-btn">Oddaj głos</a>';
         html += '</div></div></div>';
 
         $('body').append(html);
         $('#harnasModal').hide().fadeIn(400);
-        wpiszRanking($('#harnasModal .harnas-miejsce'), $('#harnasModal .harnas-glosy'));
+        wpiszRanking($('#harnasModal'));
 
         $('#harnasModal .harnas-zamknij').on('click', zamknij);
         $('#harnasModal').on('click', function(e){ if(e.target === this) zamknij(); });

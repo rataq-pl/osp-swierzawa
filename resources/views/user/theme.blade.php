@@ -244,6 +244,17 @@
         font-size: 11px;
         color: #b9c3e0;
     }
+    .harnas-sync{
+        margin-top: 4px;
+        font-size: 10px;
+        color: #8592b8;
+    }
+    .harnas-sync span{
+        white-space: nowrap;
+    }
+    .harnas-sync:empty{
+        display: none;
+    }
     @media (max-width: 767px){
         /* na telefonie kompaktowy pasek na dole ekranu */
         .harnas-licznik{
@@ -282,6 +293,15 @@
         .harnas-licznik-dane small{
             font-size: 9px;
             letter-spacing: 0;
+        }
+        .harnas-licznik .harnas-sync{
+            position: absolute;
+            right: 0;
+            bottom: 100%;
+            margin: 0;
+            padding: 2px 8px;
+            background: #0a0f24;
+            font-size: 9px;
         }
         .grecaptcha-badge{
             visibility: hidden !important;

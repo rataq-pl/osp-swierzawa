@@ -245,53 +245,71 @@ class Glowna extends Controller
         ]);
     }
     public function statystyki(){
-        // Statystyki działań jednostki z API OSPanel (GET /statistics/actions) za bieżący rok
+        // Statystyki działań jednostki z API OSPanel - tylko bieżący rok, w podziale na kategorie.
+        // Token Sanctum -> GET /statistics/actions, ID + klucz klienta -> POST /website/stats z parametrem year
+        // (odpowiedź z polem "actions"; starsza wersja endpointu zwraca tylko sumy ze wszystkich lat - pomijamy je).
         $rok = (int) date('Y');
+        $url = rtrim(config('services.ospanel.url'), '/');
+        $token = config('services.ospanel.token');
+        $id = config('services.ospanel.id');
+        $klucz = config('services.ospanel.key');
+
         // null (błąd API) nie zostaje w cache - spróbujemy ponownie przy kolejnym wejściu
-        $dane = \Cache::remember('statystyki-ospanel-api-'.$rok, 3600, function () use ($rok) {
-            $token = config('services.ospanel.token');
-            if(!$token){
-                \Log::warning('Statystyki OSPanel: brak OSPANEL_API_TOKEN w .env');
+        $wynik = \Cache::remember('statystyki-ospanel-rok-'.$rok.'-'.md5($token.$id), 3600, function () use ($rok, $url, $token, $id, $klucz) {
+            $proby = [];
+            if($token){
+                $proby['kategorie'] = fn() => \Http::withToken($token)->acceptJson()->timeout(5)
+                    ->get($url.'/statistics/actions', ['year' => $rok]);
+            }
+            if($id && $klucz){
+                $proby['sumy'] = fn() => \Http::withBasicAuth($id, $klucz)->acceptJson()->timeout(5)
+                    ->post($url.'/website/stats', ['year' => $rok]);
+            }
+            if(!$proby){
+                \Log::warning('Statystyki OSPanel: brak OSPANEL_API_ID/OSPANEL_API_KEY w .env');
                 return null;
             }
-            try {
-                $odp = \Http::withToken($token)
-                    ->acceptJson()
-                    ->timeout(5)
-                    ->get(rtrim(config('services.ospanel.url'), '/').'/statistics/actions', ['year' => $rok]);
-            } catch (\Throwable $e) {
-                \Log::warning('Statystyki OSPanel niedostępne: '.$e->getMessage());
-                return null;
+            // token (jeśli jest) ma pierwszeństwo; gdy nie zadziała, próbujemy ID + klucz
+            foreach($proby as $rodzaj => $zapytanie){
+                try {
+                    $odp = $zapytanie();
+                } catch (\Throwable $e) {
+                    \Log::warning('Statystyki OSPanel ('.$rodzaj.') niedostępne: '.$e->getMessage());
+                    continue;
+                }
+                $dane = $rodzaj == 'kategorie' ? $odp->json('data') : $odp->json('actions');
+                if($rodzaj == 'sumy' && $odp->successful() && !is_array($dane)){
+                    \Log::warning('Statystyki OSPanel: /website/stats nie zwraca danych za rok (brak pola "actions") - wymagana aktualizacja API OSPanel');
+                    continue;
+                }
+                if($odp->successful() && is_array($dane)){
+                    return $dane;
+                }
+                \Log::warning('Statystyki OSPanel ('.$rodzaj.'): HTTP '.$odp->status().' '.mb_substr($odp->body(), 0, 300));
             }
-            if(!$odp->successful() || !is_array($odp->json('data'))){
-                \Log::warning('Statystyki OSPanel: HTTP '.$odp->status().' '.mb_substr($odp->body(), 0, 300));
-                return null;
-            }
-            return $odp->json('data');
+            return null;
         });
 
-        $kategorie = [
-            'pozar' => 'Pożary',
-            'miejscowe_zagrozenie' => 'Miejscowe zagrożenia',
-            'falszywy_alarm' => 'Alarmy fałszywe',
-            'cwiczenia' => 'Ćwiczenia',
-            'gospodarcze' => 'Działania gospodarcze',
-            'inspekcje' => 'Inspekcje',
-        ];
         $lista = [];
-        if($dane){
-            $dane['gospodarcze'] = (int) ($dane['gospodarcze'] ?? 0) + (int) ($dane['gospodarcze_platne'] ?? 0);
+        $podpis = '';
+        if($wynik){
+            $wynik['gospodarcze'] = (int) ($wynik['gospodarcze'] ?? 0) + (int) ($wynik['gospodarcze_platne'] ?? 0);
+            $kategorie = [
+                'pozar' => 'Pożary',
+                'miejscowe_zagrozenie' => 'Miejscowe zagrożenia',
+                'falszywy_alarm' => 'Alarmy fałszywe',
+                'cwiczenia' => 'Ćwiczenia',
+                'gospodarcze' => 'Działania gospodarcze',
+                'inspekcje' => 'Inspekcje',
+            ];
             foreach($kategorie as $klucz => $nazwa){
-                if((int) ($dane[$klucz] ?? 0) > 0){
-                    $lista[] = ['kategoria' => $nazwa, 'iloscDzialan' => (int) $dane[$klucz]];
+                if((int) ($wynik[$klucz] ?? 0) > 0){
+                    $lista[] = ['kategoria' => $nazwa, 'iloscDzialan' => (int) $wynik[$klucz]];
                 }
             }
+            $podpis = 'Działania w '.$rok.' r. – łącznie '.(int) ($wynik['total'] ?? array_sum(array_column($lista, 'iloscDzialan')));
         }
-        return [
-            'rok' => $rok,
-            'lista' => $lista,
-            'razem' => (int) ($dane['total'] ?? array_sum(array_column($lista, 'iloscDzialan'))),
-        ];
+        return ['lista' => $lista, 'podpis' => $podpis];
     }
     public function import(){
         $plik = file_get_contents('OSP-wpisy.xml');

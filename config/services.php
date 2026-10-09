@@ -37,6 +37,10 @@ return [
 
     'ospanel' => [
         'url' => env('OSPANEL_API_URL', 'https://ospanel.pl/api'),
+        // klient API strony jednostki (POST /website/stats, Basic Auth ID:klucz)
+        'id' => env('OSPANEL_API_ID'),
+        'key' => env('OSPANEL_API_KEY'),
+        // opcjonalnie token Sanctum konta jednostki (GET /statistics/actions - podzial na kategorie)
         'token' => env('OSPANEL_API_TOKEN'),
     ],
 

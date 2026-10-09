@@ -238,7 +238,7 @@
                                 </li>
                                 @endforeach
                             </ul>
-                            <p class="stat-zrodlo">Działania w {{ $statystyki['rok'] }} r. – łącznie {{ $statystyki['razem'] }}</p>
+                            <p class="stat-zrodlo">{{ $statystyki['podpis'] }}</p>
                             @endif
                         </div>
                     </div>

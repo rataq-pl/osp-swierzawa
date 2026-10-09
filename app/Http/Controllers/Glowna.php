@@ -293,7 +293,7 @@ class Glowna extends Controller
         $lista = [];
         $podpis = '';
         if($wynik){
-            $wynik['gospodarcze'] = (int) ($wynik['gospodarcze'] ?? 0) + (int) ($wynik['gospodarcze_platne'] ?? 0);
+            // gospodarcze_platne to podzbiór gospodarcze - nie sumujemy
             $kategorie = [
                 'pozar' => 'Pożary',
                 'miejscowe_zagrozenie' => 'Miejscowe zagrożenia',

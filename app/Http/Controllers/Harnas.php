@@ -42,6 +42,8 @@ class Harnas extends Controller
         return response()->json([
             'pozycja' => $q->pozycja,
             'glosy' => $q->glosy,
+            // ile glosow brakuje do kolejnego miejsca (null = 1. miejsce lub brak danych)
+            'brakuje' => $q->pozycja > 1 && isset($q->glosy_wyzej) ? max(1, $q->glosy_wyzej - $q->glosy + 1) : null,
             'wszystkich' => $q->wszystkich,
             'aktualizacja' => Carbon::parse($q->aktualizacja, 'UTC')->toIso8601String(),
             'blad' => $q->blad,
@@ -85,6 +87,7 @@ class Harnas extends Controller
         )));
 
         $ostatniaStrona = null;
+        $zapytan = 0;
         foreach($kolejnosc as $strona){
             if($ostatniaStrona && $strona > $ostatniaStrona){
                 continue;
@@ -93,12 +96,22 @@ class Harnas extends Controller
                 sleep(1);
             }
             $dane = $this->pobierzStrone($strona);
+            $zapytan++;
             $ostatniaStrona = $dane['last_page'] ?? null;
-            foreach($dane['data'] ?? [] as $poz){
+            foreach($dane['data'] ?? [] as $i => $poz){
                 if(mb_strtolower(trim($poz['name'])) == mb_strtolower(self::NAZWA)){
+                    // jednostka bezposrednio wyzej w rankingu
+                    $glosyWyzej = $this->glosyWyzej(array_slice($dane['data'], 0, $i));
+                    // jestesmy na gorze strony - zagladamy na poprzednia, o ile nie przekroczymy limitu 3 zapytan
+                    if($glosyWyzej === null && $poz['position'] > 1 && $strona > 1 && $zapytan < 3){
+                        sleep(1);
+                        $poprzednia = $this->pobierzStrone($strona - 1);
+                        $glosyWyzej = $this->glosyWyzej($poprzednia['data'] ?? []);
+                    }
                     return [
                         'pozycja' => $poz['position'],
                         'glosy' => $poz['vote_count'],
+                        'glosy_wyzej' => $glosyWyzej,
                         'strona' => $strona,
                         'wszystkich' => $dane['total'] ?? null,
                         'start' => null,
@@ -110,5 +123,11 @@ class Harnas extends Controller
         $nastepny = min($kolejnosc) - 1;
         DB::table('harnas_ranking')->where('id', 1)->update(['start' => $nastepny >= 1 ? $nastepny : ($ostatniaStrona ?? 20)]);
         throw new \Exception('nie znaleziono '.self::NAZWA.' na stronach '.implode(',', $kolejnosc));
+    }
+
+    // liczba glosow ostatniej pozycji z listy (czyli tej tuz nad nami)
+    private function glosyWyzej(array $pozycje){
+        $wyzej = end($pozycje);
+        return $wyzej ? (int) $wyzej['vote_count'] : null;
     }
 }

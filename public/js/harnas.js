@@ -22,10 +22,23 @@
         });
     }
 
+    // 1 glos, 2-4 glosy, 5+ glosow (12-14 zawsze glosow)
+    function odmienGlosy(n){
+        if(n === 1) return 'głos';
+        var j = n % 10, d = n % 100;
+        return (j >= 2 && j <= 4 && (d < 12 || d > 14)) ? 'głosy' : 'głosów';
+    }
+
     function wpiszRanking(okno){
         ranking.done(function(d){
             okno.find('.harnas-miejsce').text(d.pozycja);
             okno.find('.harnas-glosy').text(d.glosy);
+            var awans = okno.find('.harnas-awans');
+            if(d.pozycja == 1){
+                awans.html('Jesteśmy na <b>1. miejscu</b> – głosuj, aby je utrzymać!').show();
+            }else if(d.brakuje){
+                awans.html('Do <b>' + (d.pozycja - 1) + '. miejsca</b> brakuje nam tylko <b>' + d.brakuje + '</b> ' + odmienGlosy(d.brakuje) + '!').show();
+            }
             var data = formatujDate(d.aktualizacja);
             if(data) okno.find('.harnas-sync').html('Ostatnia synchronizacja: <span>' + data + '</span>');
         });
@@ -39,6 +52,7 @@
     licznik += '<div><b class="harnas-miejsce">–</b><small>miejsce</small></div>';
     licznik += '<div><b class="harnas-glosy">–</b><small>głosów</small></div>';
     licznik += '</div>';
+    licznik += '<div class="harnas-awans"></div>';
     licznik += '<a href="' + LINK + '" target="_blank" rel="noopener" class="harnas-btn">Oddaj głos</a>';
     licznik += '<div class="harnas-licznik-info">1 głos dziennie z 1 adresu e-mail</div>';
     licznik += '<div class="harnas-sync"></div>';
@@ -64,7 +78,7 @@
         html += '<a class="harnas-zamknij" aria-label="Zamknij">&times;</a>';
         html += '<a href="' + LINK + '" target="_blank" rel="noopener"><img src="/OSP-Swierzawa-glosowanie-modal.jpg" alt="Zagłosuj na OSP Świerzawa - osp-harnas.pl"></a>';
         html += '<div class="harnas-dol">';
-        html += '<div class="harnas-modal-dane">Miejsce w rankingu: <b class="harnas-miejsce">–</b><br>Liczba głosów: <b class="harnas-glosy">–</b><div class="harnas-sync"></div></div>';
+        html += '<div class="harnas-modal-dane">Miejsce w rankingu: <b class="harnas-miejsce">–</b><br>Liczba głosów: <b class="harnas-glosy">–</b><div class="harnas-awans"></div><div class="harnas-sync"></div></div>';
         html += '<a href="' + LINK + '" target="_blank" rel="noopener" class="harnas-btn">Oddaj głos</a>';
         html += '</div></div></div>';
 

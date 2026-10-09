@@ -239,6 +239,26 @@
         text-transform: uppercase;
         letter-spacing: 1px;
     }
+    .harnas-awans{
+        display: none;
+        margin: 6px 0 10px;
+        padding: 6px 8px;
+        font-size: 13px;
+        line-height: 1.35;
+        color: #fff;
+        background: rgba(240, 19, 19, 0.85);
+        border-radius: 6px;
+    }
+    .harnas-awans b{
+        color: #fdd23a;
+    }
+    .harnas-modal-dane .harnas-awans{
+        margin: 8px 0 4px;
+        font-size: 14px;
+    }
+    .harnas-modal-dane .harnas-awans b{
+        font-size: inherit;
+    }
     .harnas-licznik-info{
         margin-top: 6px;
         font-size: 11px;

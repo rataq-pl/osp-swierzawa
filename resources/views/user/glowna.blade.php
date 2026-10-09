@@ -229,14 +229,17 @@
                                 <h2 itemprop="headline">Nasze statystyki</h2>
                             </div>
                             <p itemprop="description">Nasze działania to nie tylko pożary, ale także powodzie czy podtopienia. Zaliczają się do nich również wypadki, zabezpieczanie miejsc zdarzeń i wiele innych.</p>
+                            @if (count($statystyki['lista']))
                             <ul class="stat-grid">
-                                @foreach ($statystyki as $q)
+                                @foreach ($statystyki['lista'] as $q)
                                 <li class="stat-bx">
                                     <span class="counter">{{$q['iloscDzialan']}}</span>
                                     <h6 itemprop="headline">{{$q['kategoria']}}</h6>
                                 </li>
                                 @endforeach
                             </ul>
+                            <p class="stat-zrodlo">Działania w {{ $statystyki['rok'] }} r. – łącznie {{ $statystyki['razem'] }}</p>
+                            @endif
                         </div>
                     </div>
                     <div class="col-md-1 col-sm-12 col-lg-1"></div>
@@ -304,13 +307,14 @@
     .vdo-bx > h3{position:absolute;left:0;right:0;bottom:0;z-index:2;margin:0;padding:12px 15px;font-size:16px;color:#fff;background:linear-gradient(to top, rgba(0,0,0,.75), rgba(0,0,0,0));}
 
     /* Nasze statystyki */
-    .stat-grid{display:grid;grid-template-columns:repeat(3, 1fr);gap:15px;padding:0;margin:30px 0 0;list-style:none;}
+    .stat-grid{display:grid;grid-template-columns:repeat(auto-fit, minmax(140px, 1fr));gap:15px;padding:0;margin:30px 0 0;list-style:none;}
+    .stat-zrodlo{margin:15px 0 0;font-size:13px;color:rgba(255,255,255,.7);}
     .stat-bx{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:25px 10px;border:1px solid rgba(255,255,255,.25);border-radius:10px;background:rgba(255,255,255,.06);}
     .stat-bx .counter{font-family:montserrat;font-weight:700;font-size:44px;line-height:1;color:#fff;position:relative;padding-bottom:12px;}
     .stat-bx .counter:after{content:"";position:absolute;left:50%;bottom:0;width:25px;height:3px;margin-left:-12.5px;background:#f01313;}
     .stat-bx h6{margin:14px 0 0;font-size:14px;font-weight:700;line-height:1.3;color:#fff;}
     @media (max-width: 575px){
-        .stat-grid{grid-template-columns:1fr;}
+        .stat-grid{grid-template-columns:1fr 1fr;}
     }
 
     /* Moduł nauki */

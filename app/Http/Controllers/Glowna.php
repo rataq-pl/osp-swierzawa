@@ -245,12 +245,52 @@ class Glowna extends Controller
         ]);
     }
     public function statystyki(){
-        // Statystyki - zwraca przykładowe dane
-        // Można podłączyć zewnętrzne API lub bazę danych ospanel
+        // Statystyki działań jednostki z API OSPanel (GET /statistics/actions) za bieżący rok
+        $rok = (int) date('Y');
+        // null (błąd API) nie zostaje w cache - spróbujemy ponownie przy kolejnym wejściu
+        $dane = \Cache::remember('statystyki-ospanel-api-'.$rok, 3600, function () use ($rok) {
+            $token = config('services.ospanel.token');
+            if(!$token){
+                \Log::warning('Statystyki OSPanel: brak OSPANEL_API_TOKEN w .env');
+                return null;
+            }
+            try {
+                $odp = \Http::withToken($token)
+                    ->acceptJson()
+                    ->timeout(5)
+                    ->get(rtrim(config('services.ospanel.url'), '/').'/statistics/actions', ['year' => $rok]);
+            } catch (\Throwable $e) {
+                \Log::warning('Statystyki OSPanel niedostępne: '.$e->getMessage());
+                return null;
+            }
+            if(!$odp->successful() || !is_array($odp->json('data'))){
+                \Log::warning('Statystyki OSPanel: HTTP '.$odp->status().' '.mb_substr($odp->body(), 0, 300));
+                return null;
+            }
+            return $odp->json('data');
+        });
+
+        $kategorie = [
+            'pozar' => 'Pożary',
+            'miejscowe_zagrozenie' => 'Miejscowe zagrożenia',
+            'falszywy_alarm' => 'Alarmy fałszywe',
+            'cwiczenia' => 'Ćwiczenia',
+            'gospodarcze' => 'Działania gospodarcze',
+            'inspekcje' => 'Inspekcje',
+        ];
+        $lista = [];
+        if($dane){
+            $dane['gospodarcze'] = (int) ($dane['gospodarcze'] ?? 0) + (int) ($dane['gospodarcze_platne'] ?? 0);
+            foreach($kategorie as $klucz => $nazwa){
+                if((int) ($dane[$klucz] ?? 0) > 0){
+                    $lista[] = ['kategoria' => $nazwa, 'iloscDzialan' => (int) $dane[$klucz]];
+                }
+            }
+        }
         return [
-            ['kategoria' => 'Pożary', 'iloscDzialan' => 15],
-            ['kategoria' => 'Miejscowe zagrożenia', 'iloscDzialan' => 28],
-            ['kategoria' => 'Alarmy fałszywe', 'iloscDzialan' => 3],
+            'rok' => $rok,
+            'lista' => $lista,
+            'razem' => (int) ($dane['total'] ?? array_sum(array_column($lista, 'iloscDzialan'))),
         ];
     }
     public function import(){

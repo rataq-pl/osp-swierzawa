@@ -35,4 +35,9 @@ return [
         ],
     ],
 
+    'ospanel' => [
+        'url' => env('OSPANEL_API_URL', 'https://ospanel.pl/api'),
+        'token' => env('OSPANEL_API_TOKEN'),
+    ],
+
 ];

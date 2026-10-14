@@ -9,4 +9,4 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 // przekierowania poczty ze skrzynki harnas@ (wymaga CRON: * * * * * php artisan schedule:run)
-Schedule::command('harnas:przekierowania')->everyFiveMinutes()->withoutOverlapping();
+Schedule::command('harnas:przekierowania')->everyMinute()->withoutOverlapping();

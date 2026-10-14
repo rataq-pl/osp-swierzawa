@@ -32,6 +32,15 @@ class HarnasPrzekierowania extends Command
 
             return self::FAILURE;
         }
+        // CRON co minute - nie dopuszczamy do dwoch przebiegow naraz (podwojna wysylka);
+        // blokada zwalnia sie sama po zakonczeniu procesu
+        $blokada = fopen(storage_path('framework/harnas-przekierowania.lock'), 'c');
+        if (!flock($blokada, LOCK_EX | LOCK_NB)) {
+            $this->line('Poprzednie uruchomienie jeszcze trwa');
+
+            return self::SUCCESS;
+        }
+
         $domena = strtolower(substr(strrchr($this->c['mail'], '@'), 1));
         $suchyBieg = $this->option('dry-run');
 

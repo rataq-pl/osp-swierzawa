@@ -9,7 +9,7 @@
             <h3 class="title">Przekierowania poczty {{$skrzynka}}</h3>
         </div>
         <p class="text-muted">
-            Co 5 minut nowe wiadomości ze skrzynki {{$skrzynka}} są sprawdzane pod kątem aliasu, przez który trafiły
+            Co minutę nowe wiadomości ze skrzynki {{$skrzynka}} są sprawdzane pod kątem aliasu, przez który trafiły
             (np. <code>dominika33@osp-swierzawa.pl</code>). Wzorzec <code>dominika*</code> lub sam początek <code>dominika</code>
             pasuje do wszystkich aliasów zaczynających się od „dominika”. Gdy pasuje kilka reguł, wygrywa dłuższy (bardziej szczegółowy) wzorzec.
             Wiadomości bez pasującej reguły zostają w skrzynce, oznaczone jako przeczytane.

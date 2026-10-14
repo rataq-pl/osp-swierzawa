@@ -846,4 +846,50 @@ public function generateImage($img){
         $komunikat = Admin::komunikat('warning', 'Usunieto!', 'Token API zostal uniewaziony.');
         return back()->with('komunikat', $komunikat);
     }
+
+    // Przekierowania poczty ze skrzynki harnas@ (CRON harnas:przekierowania)
+    public function przekierowania()
+    {
+        return view('admin.przekierowania', [
+            'reguly' => DB::table('harnas_przekierowania')->orderBy('alias')->get(),
+            'edycja' => request()->has('edytuj') ? DB::table('harnas_przekierowania')->where('id', request()->get('edytuj'))->first() : null,
+            'log' => DB::table('harnas_przekierowania_log')->orderByDesc('id')->limit(100)->get(),
+            'skrzynka' => config('services.harnas.mail'),
+            'komunikat' => session('komunikat'),
+        ]);
+    }
+
+    public function przekierowaniaZapisz(Request $request)
+    {
+        $dane = $request->validate([
+            'alias' => 'required|string|max:255',
+            'email' => 'required|string|max:500',
+            'opis' => 'nullable|string|max:255',
+        ]);
+        $adresy = array_filter(array_map('trim', preg_split('/[,;\s]+/', $dane['email'])));
+        foreach ($adresy as $adres) {
+            if (!filter_var($adres, FILTER_VALIDATE_EMAIL)) {
+                return back()->withInput()->with('komunikat', $this->komunikat('danger', 'Blad!', 'Niepoprawny adres e-mail: '.e($adres)));
+            }
+        }
+        $dane['alias'] = strtolower(trim($dane['alias']));
+        $dane['email'] = implode(', ', $adresy);
+        $dane['aktywne'] = $request->has('aktywne') ? 1 : 0;
+        $dane['updated_at'] = now();
+
+        if ($request->filled('id')) {
+            DB::table('harnas_przekierowania')->where('id', $request->get('id'))->update($dane);
+        } else {
+            DB::table('harnas_przekierowania')->insert($dane + ['created_at' => now()]);
+        }
+
+        return redirect('/admin/przekierowania')->with('komunikat', $this->komunikat('success', 'Zapisano!', 'Regula przekierowania zostala zapisana.'));
+    }
+
+    public function przekierowaniaUsun($id)
+    {
+        DB::table('harnas_przekierowania')->where('id', $id)->delete();
+
+        return redirect('/admin/przekierowania')->with('komunikat', $this->komunikat('warning', 'Usunieto!', 'Regula przekierowania zostala usunieta.'));
+    }
 }

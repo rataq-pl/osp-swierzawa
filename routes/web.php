@@ -93,6 +93,11 @@ Route::middleware(['auth'])->group(function(){
     Route::get('admin/sponsorzy/edycja/{id}', [Admin::class, 'sponsorzyEdycja']);
     Route::post('admin/sponsorzy/edycja/{id}', [Admin::class, 'sponsorzyEdycjaPOST']);
 
+    // Przekierowania poczty harnas@
+    Route::get('admin/przekierowania', [Admin::class, 'przekierowania']);
+    Route::post('admin/przekierowania', [Admin::class, 'przekierowaniaZapisz']);
+    Route::post('admin/przekierowania/usun/{id}', [Admin::class, 'przekierowaniaUsun']);
+
     // Admin Management (super_admin only)
     Route::get('admin/administratorzy', [Admin::class, 'administratorzy']);
     Route::get('admin/administratorzy/dodaj', [Admin::class, 'administratorzyDodaj']);

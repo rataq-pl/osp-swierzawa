@@ -82,6 +82,9 @@
       <li class="nav-item dropdown">
         <a class="nav-link" href="/admin/sponsorzy">Sponsorzy</a>
       </li>
+      <li class="nav-item">
+        <a class="nav-link" href="/admin/przekierowania">Przekierowania e-mail</a>
+      </li>
       <li class="nav-item dropdown">
         <a class="nav-link" href="/admin/dokumenty">Lista mailingowa <span class="sr-only">Główna</span></a>
       </li>

@@ -68,7 +68,16 @@ php artisan route:cache
 php artisan view:cache
 ```
 
-### 6. Generowanie sitemap
+### 6. CRON (przekierowania poczty harnas@)
+W panelu hostingu dodaj zadanie CRON uruchamiane co minutę:
+```bash
+* * * * * cd /sciezka/do/projektu && php artisan schedule:run >> /dev/null 2>&1
+```
+Komenda `harnas:przekierowania` (co 5 min) czyta nieprzeczytane wiadomości ze skrzynki `HARNAS_MAIL` (IMAP, `HARNAS_IMAP_PORT`),
+przekierowuje je wg reguł z panelu **Przekierowania e-mail** (`/admin/przekierowania`) przez SMTP (`HARNAS_PORT`)
+i oznacza jako przeczytane. Test bez wysyłki: `php artisan harnas:przekierowania --dry-run`.
+
+### 7. Generowanie sitemap
 Odwiedź: https://osp-swierzawa.pl/sitemap
 
 ## Panel administracyjny

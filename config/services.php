@@ -44,4 +44,14 @@ return [
         'token' => env('OSPANEL_API_TOKEN'),
     ],
 
+    // skrzynka harnas@ - CRON harnas:przekierowania czyta nowe wiadomosci (IMAP)
+    // i przekierowuje je dalej wg aliasu (SMTP), reguly w panelu: /admin/przekierowania
+    'harnas' => [
+        'mail' => env('HARNAS_MAIL'),
+        'host' => env('HARNAS_HOST'),
+        'haslo' => env('HARNAS_MAIL_PASS'),
+        'imap_port' => (int) env('HARNAS_IMAP_PORT', 993),
+        'smtp_port' => (int) env('HARNAS_PORT', 587),
+    ],
+
 ];

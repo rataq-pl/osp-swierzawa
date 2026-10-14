@@ -75,7 +75,13 @@
             </tbody>
         </table>
 
-        <h4 class="title mt-5">Ostatnio sprawdzone wiadomości</h4>
+        <h4 class="title mt-5" id="historia">Ostatnio sprawdzone wiadomości</h4>
+        <div class="d-flex mb-3" style="flex-wrap: wrap;">
+            <div class="col-3 px-1"><div class="alert alert-success text-center mb-0"><h3 class="mb-0">{{$licznik['przekierowano']}}</h3>przekierowanych</div></div>
+            <div class="col-3 px-1"><div class="alert alert-info text-center mb-0"><h3 class="mb-0">{{$licznik['dzisiaj']}}</h3>przekierowanych dzisiaj</div></div>
+            <div class="col-3 px-1"><div class="alert alert-secondary text-center mb-0"><h3 class="mb-0">{{$licznik['brak_reguly']}}</h3>bez przekierowania</div></div>
+            <div class="col-3 px-1"><div class="alert alert-danger text-center mb-0"><h3 class="mb-0">{{$licznik['blad']}}</h3>błędów wysyłki</div></div>
+        </div>
         <table class="table table-striped table-sm" style="font-size: 0.9em;">
             <thead>
                 <th>Data</th>
@@ -105,6 +111,10 @@
                 @endforelse
             </tbody>
         </table>
+        <div class="d-flex justify-content-between align-items-center">
+            <small class="text-muted">Wpisy {{$log->firstItem() ?? 0}}–{{$log->lastItem() ?? 0}} z {{$log->total()}}</small>
+            {{ $log->links('pagination::bootstrap-4') }}
+        </div>
     </div>
 </div>
 @endsection

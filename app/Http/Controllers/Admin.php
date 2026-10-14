@@ -853,7 +853,13 @@ public function generateImage($img){
         return view('admin.przekierowania', [
             'reguly' => DB::table('harnas_przekierowania')->orderBy('alias')->get(),
             'edycja' => request()->has('edytuj') ? DB::table('harnas_przekierowania')->where('id', request()->get('edytuj'))->first() : null,
-            'log' => DB::table('harnas_przekierowania_log')->orderByDesc('id')->limit(100)->get(),
+            'log' => DB::table('harnas_przekierowania_log')->orderByDesc('id')->paginate(25)->withQueryString()->fragment('historia'),
+            'licznik' => [
+                'przekierowano' => DB::table('harnas_przekierowania_log')->where('status', 'przekierowano')->count(),
+                'dzisiaj' => DB::table('harnas_przekierowania_log')->where('status', 'przekierowano')->where('created_at', '>=', today())->count(),
+                'brak_reguly' => DB::table('harnas_przekierowania_log')->where('status', 'brak_reguly')->count(),
+                'blad' => DB::table('harnas_przekierowania_log')->where('status', 'blad')->distinct()->count('message_id'),
+            ],
             'skrzynka' => config('services.harnas.mail'),
             'komunikat' => session('komunikat'),
         ]);

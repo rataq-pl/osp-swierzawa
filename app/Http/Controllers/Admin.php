@@ -861,8 +861,56 @@ public function generateImage($img){
                 'blad' => DB::table('harnas_przekierowania_log')->where('status', 'blad')->distinct()->count('message_id'),
             ],
             'skrzynka' => config('services.harnas.mail'),
+            'konkurencja' => $this->konkurencja(),
             'komunikat' => session('komunikat'),
         ]);
+    }
+
+    // dzienne przyrosty glosow pierwszych 20 jednostek osp-harnas.pl (CRON harnas:konkurencja);
+    // przyrost dnia = ostatni odczyt dnia - ostatni odczyt dnia poprzedniego
+    // (gdy go brak - pierwszy odczyt tego dnia, wtedy przyrost jest czesciowy)
+    private function konkurencja($dni = 14)
+    {
+        $wiersze = DB::table('harnas_konkurencja')
+            ->where('data', '>=', now('Europe/Warsaw')->subDays($dni)->toDateString())
+            ->orderBy('data')->get();
+        $daty = $wiersze->pluck('data')->unique()->values();
+        $ostatniDzien = $daty->last();
+
+        $jednostki = [];
+        foreach ($wiersze->groupBy('nazwa') as $nazwa => $odczyty) {
+            $poDniach = $odczyty->keyBy('data');
+            $przyrosty = [];
+            $poprzedni = null;
+            foreach ($daty as $i => $data) {
+                $o = $poDniach[$data] ?? null;
+                if ($o) {
+                    $czesciowy = !$poprzedni || $poprzedni->data != ($daty[$i - 1] ?? null);
+                    $przyrosty[$data] = ['glosy' => $o->glosy - ($czesciowy ? $o->glosy_rano : $poprzedni->glosy), 'czesciowy' => $czesciowy];
+                    $poprzedni = $o;
+                }
+            }
+            $teraz = $poDniach[$ostatniDzien] ?? null;
+            $jednostki[] = [
+                'nazwa' => $nazwa,
+                'nasza' => mb_strtolower($nazwa) == mb_strtolower(Harnas::NAZWA),
+                'pozycja' => $teraz->pozycja ?? null,
+                'glosy' => $teraz->glosy ?? null,
+                'przyrosty' => $przyrosty,
+                // przyrost z ostatnich 7 dni na liscie
+                'tydzien' => collect($przyrosty)->only($daty->slice(-7)->all())->sum('glosy'),
+            ];
+        }
+        // aktualna pierwsza 20 wg pozycji, jednostki ktore z niej wypadly na koncu
+        usort($jednostki, fn ($a, $b) => [$a['pozycja'] === null, $a['pozycja']] <=> [$b['pozycja'] === null, $b['pozycja']]);
+
+        $daty = $daty->reverse()->values();
+        $najwiecej = [];
+        foreach ($daty as $data) {
+            $najwiecej[$data] = collect($jednostki)->max(fn ($j) => $j['przyrosty'][$data]['glosy'] ?? null);
+        }
+
+        return ['daty' => $daty, 'jednostki' => $jednostki, 'najwiecej' => $najwiecej];
     }
 
     public function przekierowaniaZapisz(Request $request)

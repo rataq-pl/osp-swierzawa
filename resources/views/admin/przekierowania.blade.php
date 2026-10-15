@@ -75,6 +75,54 @@
             </tbody>
         </table>
 
+        <h4 class="title mt-5" id="konkurencja">Statystyka konkurencji</h4>
+        <p class="text-muted">
+            Przyrost głosów pierwszych 20 jednostek rankingu osp-harnas.pl w kolejnych dniach (odczyt co godzinę, ostatni o 23:55).
+            Pogrubiony jest największy przyrost danego dnia. Gwiazdka (*) oznacza przyrost liczony od pierwszego odczytu tego dnia, bo brakuje odczytu z dnia poprzedniego.
+        </p>
+        @if(!$konkurencja['jednostki'])
+            <div class="alert alert-secondary">Brak danych - pojawią się po pierwszym uruchomieniu <code>php artisan harnas:konkurencja</code>.</div>
+        @else
+            <div class="table-responsive mb-4">
+                <table class="table table-striped table-sm" style="font-size: 0.9em; white-space: nowrap;">
+                    <thead>
+                        <th>#</th>
+                        <th>Jednostka</th>
+                        <th class="text-right">Głosy</th>
+                        <th class="text-right">7 dni</th>
+                        @foreach($konkurencja['daty'] as $data)
+                            <th class="text-right">{{ \Carbon\Carbon::parse($data)->format('d.m') }}</th>
+                        @endforeach
+                    </thead>
+                    <tbody>
+                        @foreach($konkurencja['jednostki'] as $j)
+                            <tr @if($j['nasza']) class="table-warning" @endif>
+                                <td>{{$j['pozycja'] ?? '-'}}</td>
+                                <td>{{$j['nazwa']}}</td>
+                                <td class="text-right">{{ $j['glosy'] !== null ? number_format($j['glosy'], 0, ',', ' ') : '-' }}</td>
+                                <td class="text-right"><strong>+{{ number_format($j['tydzien'], 0, ',', ' ') }}</strong></td>
+                                @foreach($konkurencja['daty'] as $data)
+                                    @php($p = $j['przyrosty'][$data] ?? null)
+                                    <td class="text-right {{ $p && $p['czesciowy'] ? 'text-muted' : '' }}">
+                                        @if($p)
+                                            @if($p['glosy'] > 0 && $p['glosy'] == $konkurencja['najwiecej'][$data])
+                                                <strong class="text-success">+{{$p['glosy']}}</strong>
+                                            @else
+                                                +{{$p['glosy']}}
+                                            @endif
+                                            {{ $p['czesciowy'] ? '*' : '' }}
+                                        @else
+                                            -
+                                        @endif
+                                    </td>
+                                @endforeach
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        @endif
+
         <h4 class="title mt-5" id="historia">Ostatnio sprawdzone wiadomości</h4>
         <div class="d-flex mb-3" style="flex-wrap: wrap;">
             <div class="col-3 px-1"><div class="alert alert-success text-center mb-0"><h3 class="mb-0">{{$licznik['przekierowano']}}</h3>przekierowanych</div></div>

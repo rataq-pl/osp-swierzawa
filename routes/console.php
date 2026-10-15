@@ -10,3 +10,7 @@ Artisan::command('inspire', function () {
 
 // przekierowania poczty ze skrzynki harnas@ (wymaga CRON: * * * * * php artisan schedule:run)
 Schedule::command('harnas:przekierowania')->everyMinute()->withoutOverlapping();
+
+// glosy pierwszych 20 jednostek rankingu osp-harnas.pl - statystyka konkurencji w /admin/przekierowania;
+// ostatni odczyt o 23:55 zamyka dzien
+Schedule::command('harnas:konkurencja')->hourlyAt(55)->timezone('Europe/Warsaw')->withoutOverlapping();

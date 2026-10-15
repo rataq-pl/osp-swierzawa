@@ -52,7 +52,8 @@ class Harnas extends Controller
 
     // pobiera jedna strone rankingu; osp-harnas.pl przyjmuje tylko jedno zapytanie o ranking
     // na sesje (kolejne konczy sie 419), dlatego kazda strona to nowa sesja
-    private function pobierzStrone($strona){
+    // (uzywane tez przez CRON harnas:konkurencja)
+    public static function pobierzStrone($strona){
         $jar = new CookieJar();
         $http = Http::withOptions(['cookies' => $jar])
             ->withUserAgent('Mozilla/5.0 (OSP Swierzawa ranking)')
@@ -95,7 +96,7 @@ class Harnas extends Controller
             if($ostatniaStrona){
                 sleep(1);
             }
-            $dane = $this->pobierzStrone($strona);
+            $dane = self::pobierzStrone($strona);
             $zapytan++;
             $ostatniaStrona = $dane['last_page'] ?? null;
             foreach($dane['data'] ?? [] as $i => $poz){
@@ -105,7 +106,7 @@ class Harnas extends Controller
                     // jestesmy na gorze strony - zagladamy na poprzednia, o ile nie przekroczymy limitu 3 zapytan
                     if($glosyWyzej === null && $poz['position'] > 1 && $strona > 1 && $zapytan < 3){
                         sleep(1);
-                        $poprzednia = $this->pobierzStrone($strona - 1);
+                        $poprzednia = self::pobierzStrone($strona - 1);
                         $glosyWyzej = $this->glosyWyzej($poprzednia['data'] ?? []);
                     }
                     return [

@@ -141,21 +141,28 @@ class HarnasPrzekierowania extends Command
     private function dopasuj(array $aliasy, $reguly): array
     {
         foreach ($aliasy as $adres) {
-            $lokalna = strstr($adres, '@', true);
             foreach ($reguly as $r) {
-                $wzorzec = strtolower(trim($r->alias));
-                $pasuje = str_contains($wzorzec, '@')
-                    ? fnmatch($wzorzec, $adres)
-                    : (str_contains($wzorzec, '*') || str_contains($wzorzec, '?')
-                        ? fnmatch($wzorzec, $lokalna)
-                        : str_starts_with($lokalna, $wzorzec));
-                if ($pasuje) {
+                if (self::pasuje($r->alias, $adres)) {
                     return [$adres, $r];
                 }
             }
         }
 
         return [$aliasy[0] ?? null, null];
+    }
+
+    // czy adres (alias@domena) pasuje do wzorca reguly: pelny adres z *, wzorzec czesci lokalnej lub jej poczatek
+    public static function pasuje(string $wzorzec, string $adres): bool
+    {
+        $wzorzec = strtolower(trim($wzorzec));
+        $adres = strtolower($adres);
+        $lokalna = strstr($adres, '@', true) ?: $adres;
+
+        return str_contains($wzorzec, '@')
+            ? fnmatch($wzorzec, $adres)
+            : (str_contains($wzorzec, '*') || str_contains($wzorzec, '?')
+                ? fnmatch($wzorzec, $lokalna)
+                : str_starts_with($lokalna, $wzorzec));
     }
 
     // "a@x.pl, b@y.pl" -> lista poprawnych adresow, bez samej skrzynki harnas@ (petla)

@@ -126,5 +126,6 @@
                 $('.edytor').summernote();
             });
         </script>
+        @yield('skrypty')
 </body>
 </html>

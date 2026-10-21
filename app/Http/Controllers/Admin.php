@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Console\Commands\HarnasPrzekierowania;
+use App\Services\ImapKlient;
+use App\Services\MimeTresc;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -860,10 +863,143 @@ public function generateImage($img){
                 'brak_reguly' => DB::table('harnas_przekierowania_log')->where('status', 'brak_reguly')->count(),
                 'blad' => DB::table('harnas_przekierowania_log')->where('status', 'blad')->distinct()->count('message_id'),
             ],
+            'bezPrzekierowania' => DB::table('harnas_przekierowania_log')->where('status', 'brak_reguly')->orderByDesc('id')->limit(200)->get(),
+            'adresaci' => $this->adresaci(),
             'skrzynka' => config('services.harnas.mail'),
             'konkurencja' => $this->konkurencja(),
             'komunikat' => session('komunikat'),
         ]);
+    }
+
+    // ile wiadomosci (glosow) przekierowano na kazdy adres docelowy - lacznie i w ostatnich dniach
+    private function adresaci($dni = 7)
+    {
+        $opisy = [];
+        foreach (DB::table('harnas_przekierowania')->get() as $r) {
+            foreach (array_filter(preg_split('/[,;\s]+/', strtolower($r->email))) as $adres) {
+                $opisy[$adres][] = $r->opis ?: $r->alias;
+            }
+        }
+        $daty = collect(range(0, $dni - 1))->map(fn ($i) => now('Europe/Warsaw')->subDays($i)->toDateString());
+
+        $adresaci = [];
+        $wpisy = DB::table('harnas_przekierowania_log')->where('status', 'przekierowano')
+            ->get(['message_id', 'alias', 'email', 'created_at']);
+        foreach ($wpisy as $w) {
+            foreach (array_filter(preg_split('/[,;\s]+/', strtolower($w->email))) as $adres) {
+                // ta sama wiadomosc liczona raz, nawet gdyby trafila do logu kilka razy
+                $adresaci[$adres]['wiadomosci'][$w->message_id] = \Carbon\Carbon::parse($w->created_at, 'UTC')->tz('Europe/Warsaw');
+                $adresaci[$adres]['aliasy'][$w->alias] = true;
+            }
+        }
+        $adresaci = collect($adresaci)->map(fn ($a, $adres) => [
+            'adres' => $adres,
+            'opis' => implode(', ', array_unique($opisy[$adres] ?? [])),
+            'lacznie' => count($a['wiadomosci']),
+            'dni' => collect($a['wiadomosci'])->countBy(fn ($d) => $d->toDateString())->all(),
+            'aliasy' => count($a['aliasy']),
+            'ostatnia' => max($a['wiadomosci']),
+        ])->sortByDesc('lacznie')->values();
+
+        return ['daty' => $daty, 'adresaci' => $adresaci];
+    }
+
+    // tresc wiadomosci z logu pobierana na zywo ze skrzynki harnas@ (w bazie trzymamy tylko naglowki)
+    public function przekierowaniaPodglad($id)
+    {
+        $wpis = DB::table('harnas_przekierowania_log')->where('id', $id)->first();
+        if (!$wpis) {
+            return response()->json(['blad' => 'Brak wpisu w historii'], 404);
+        }
+        try {
+            $imap = $this->harnasImap();
+            $mime = $this->harnasWiadomosc($imap, $wpis);
+            $imap->rozlacz();
+        } catch (\Exception $e) {
+            return response()->json(['blad' => $e->getMessage()], 500);
+        }
+        if (!$mime) {
+            return response()->json(['blad' => 'Wiadomości nie ma już w skrzynce '.config('services.harnas.mail')], 404);
+        }
+        $n = $mime['naglowki'];
+
+        return response()->json([
+            'od' => MimeTresc::dekodujNaglowek($n['from'] ?? ''),
+            'do' => MimeTresc::dekodujNaglowek($n['to'] ?? ''),
+            'temat' => MimeTresc::dekodujNaglowek($n['subject'] ?? ''),
+            'data' => $n['date'] ?? '',
+            'alias' => $wpis->alias,
+            'html' => $mime['html'],
+            'tekst' => $mime['tekst'],
+            'zalaczniki' => $mime['zalaczniki'],
+        ], 200, [], JSON_INVALID_UTF8_SUBSTITUTE);
+    }
+
+    // najnowsze wiadomosci z aliasow pasujacych do reguly wraz z linkami "Potwierdz" z ich tresci
+    public function przekierowaniaMaile($id)
+    {
+        $ile = 20;
+        $regula = DB::table('harnas_przekierowania')->where('id', $id)->first();
+        if (!$regula) {
+            return response()->json(['blad' => 'Brak reguły'], 404);
+        }
+        $wpisy = DB::table('harnas_przekierowania_log')
+            ->whereNotNull('alias')->where('status', '!=', 'pominieto')
+            ->orderByDesc('id')->limit(1000)->get()
+            ->filter(fn ($w) => HarnasPrzekierowania::pasuje($regula->alias, $w->alias))
+            // nieudane proby wysylki tej samej wiadomosci - jeden wpis
+            ->unique('message_id')
+            ->take($ile);
+
+        try {
+            $imap = $this->harnasImap();
+            $maile = $wpisy->map(function ($w) use ($imap) {
+                $mime = $this->harnasWiadomosc($imap, $w);
+                $linki = $mime ? MimeTresc::linki($mime['html'], $mime['tekst']) : [];
+                $potwierdz = array_values(array_filter($linki, fn ($l) => preg_match('/potwierd|confirm/iu', $l['tekst'].' '.$l['url'])));
+
+                return [
+                    'id' => $w->id,
+                    'data' => \Carbon\Carbon::parse($w->created_at, 'UTC')->tz('Europe/Warsaw')->format('d.m H:i'),
+                    'temat' => $w->temat,
+                    'alias' => $w->alias,
+                    'potwierdzono' => $w->potwierdzono_at ? \Carbon\Carbon::parse($w->potwierdzono_at, 'UTC')->tz('Europe/Warsaw')->format('d.m H:i') : null,
+                    'dostepna' => (bool) $mime,
+                    // gdy nie rozpoznano linku "Potwierdz" - wszystkie linki do wyboru
+                    'linki' => $potwierdz ?: $linki,
+                    'rozpoznano' => (bool) $potwierdz,
+                ];
+            })->values();
+            $imap->rozlacz();
+        } catch (\Exception $e) {
+            return response()->json(['blad' => $e->getMessage()], 500);
+        }
+
+        return response()->json(['regula' => $regula->alias, 'maile' => $maile], 200, [], JSON_INVALID_UTF8_SUBSTITUTE);
+    }
+
+    public function przekierowaniaPotwierdzono($id)
+    {
+        DB::table('harnas_przekierowania_log')->where('id', $id)->update(['potwierdzono_at' => now()]);
+
+        return response()->json(['potwierdzono' => now('Europe/Warsaw')->format('d.m H:i')]);
+    }
+
+    private function harnasImap(): ImapKlient
+    {
+        $c = config('services.harnas');
+
+        return new ImapKlient($c['host'], $c['imap_port'], $c['mail'], $c['haslo']);
+    }
+
+    // rozebrana wiadomosc z wpisu logu albo null, gdy nie ma jej juz w skrzynce
+    private function harnasWiadomosc(ImapKlient $imap, $wpis): ?array
+    {
+        $uid = str_starts_with($wpis->message_id, 'uid:')
+            ? (int) substr($wpis->message_id, 4)
+            : $imap->szukajMessageId($wpis->message_id);
+
+        return $uid ? MimeTresc::rozbierz($imap->pobierz($uid)) : null;
     }
 
     // dzienne przyrosty glosow pierwszych 20 jednostek osp-harnas.pl (CRON harnas:konkurencja);

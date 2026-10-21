@@ -3,7 +3,7 @@
 namespace App\Services;
 
 // Minimalny klient IMAP po gniezdzie SSL - serwer nie ma rozszerzenia php-imap,
-// a potrzebujemy tylko: lista nieprzeczytanych, pobranie surowej wiadomosci, oznaczenie jako przeczytana.
+// a potrzebujemy tylko: lista nieprzeczytanych, wyszukanie po Message-ID, pobranie surowej wiadomosci, oznaczenie jako przeczytana.
 class ImapKlient
 {
     private $gniazdo;
@@ -45,6 +45,18 @@ class ImapKlient
         }
 
         throw new \Exception('IMAP brak tresci wiadomosci UID '.$uid);
+    }
+
+    // UID wiadomosci o podanym naglowku Message-ID (null gdy zostala usunieta ze skrzynki)
+    public function szukajMessageId(string $messageId): ?int
+    {
+        foreach ($this->komenda('UID SEARCH HEADER Message-ID '.$this->cytuj($messageId)) as $wiersz) {
+            if (is_string($wiersz) && preg_match('/^\* SEARCH (\d+)/', $wiersz, $m)) {
+                return (int) $m[1];
+            }
+        }
+
+        return null;
     }
 
     public function oznaczPrzeczytana(int $uid): void

@@ -97,6 +97,9 @@ Route::middleware(['auth'])->group(function(){
     Route::get('admin/przekierowania', [Admin::class, 'przekierowania']);
     Route::post('admin/przekierowania', [Admin::class, 'przekierowaniaZapisz']);
     Route::post('admin/przekierowania/usun/{id}', [Admin::class, 'przekierowaniaUsun']);
+    Route::get('admin/przekierowania/podglad/{id}', [Admin::class, 'przekierowaniaPodglad']);
+    Route::get('admin/przekierowania/maile/{id}', [Admin::class, 'przekierowaniaMaile']);
+    Route::post('admin/przekierowania/potwierdzono/{id}', [Admin::class, 'przekierowaniaPotwierdzono']);
 
     // Admin Management (super_admin only)
     Route::get('admin/administratorzy', [Admin::class, 'administratorzy']);

@@ -77,8 +77,11 @@ Komenda `harnas:przekierowania` (co minutę) czyta nieprzeczytane wiadomości ze
 przekierowuje je wg reguł z panelu **Przekierowania e-mail** (`/admin/przekierowania`) przez SMTP (`HARNAS_PORT`)
 i oznacza jako przeczytane. Test bez wysyłki: `php artisan harnas:przekierowania --dry-run`.
 
-Ten sam CRON co godzinę (o :55) uruchamia `harnas:konkurencja` - zapisuje głosy pierwszych 20 jednostek rankingu
+Ten sam CRON co 10 minut (:05, :15, … :55) uruchamia `harnas:konkurencja` - zapisuje głosy pierwszych 20 jednostek rankingu
 osp-harnas.pl (tabela `harnas_konkurencja`), z których panel **Przekierowania e-mail** pokazuje dzienne przyrosty głosów.
+Gdy którakolwiek jednostka zyska co najmniej `HARNAS_ALERT_PROG` (domyślnie 10) głosów od ostatniego powiadomienia,
+komenda wysyła e-mail (przez `MAIL_*`) na `HARNAS_ALERT_EMAIL` (domyślnie rataq91@gmail.com). Wymaga migracji
+`php artisan migrate` (tabela `harnas_konkurencja_alert`); pierwsze uruchomienie tylko zapisuje punkt odniesienia.
 
 ### 7. Generowanie sitemap
 Odwiedź: https://osp-swierzawa.pl/sitemap

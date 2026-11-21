@@ -52,6 +52,9 @@ return [
         'haslo' => env('HARNAS_MAIL_PASS'),
         'imap_port' => (int) env('HARNAS_IMAP_PORT', 993),
         'smtp_port' => (int) env('HARNAS_PORT', 587),
+        // powiadomienie o nowych glosach konkurencji (harnas:konkurencja)
+        'alert_email' => env('HARNAS_ALERT_EMAIL', 'rataq91@gmail.com'),
+        'alert_prog' => (int) env('HARNAS_ALERT_PROG', 10),
     ],
 
 ];

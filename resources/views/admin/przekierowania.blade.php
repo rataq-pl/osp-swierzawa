@@ -188,24 +188,26 @@
             </div>
         @endif
 
-        @if(count($konkurencja['wykres']['czasy']) >= 2)
-            <h5 class="mt-4" id="konkurencja-wykres">Głosy i przyrost między pomiarami</h5>
+        @if($konkurencja['wykres']['jednostki']->isNotEmpty())
+            <h5 class="mt-4" id="konkurencja-wykres">Postępy jednostek</h5>
             <div class="d-flex mb-2" style="flex-wrap: wrap; align-items: center; gap: .5rem;">
-                <div class="btn-group btn-group-sm" role="group" id="wykres-zakres">
-                    <button type="button" class="btn btn-outline-secondary active" data-godziny="24">24 h</button>
-                    <button type="button" class="btn btn-outline-secondary" data-godziny="72">3 dni</button>
-                    <button type="button" class="btn btn-outline-secondary" data-godziny="168">7 dni</button>
+                <div class="btn-group btn-group-sm" role="group" id="wykres-tryb">
+                    <button type="button" class="btn btn-outline-primary" data-tryb="godzinowo">Godzinowo</button>
+                    <button type="button" class="btn btn-outline-primary" data-tryb="dziennie">Dziennie</button>
+                    <button type="button" class="btn btn-outline-primary" data-tryb="tygodniowo">Tygodniowo</button>
                 </div>
+                <div class="btn-group btn-group-sm" role="group" id="wykres-zakres"></div>
                 <small class="text-muted">Zaznacz jednostki do porównania (najwyżej 8 naraz). Domyślnie pierwsze 3 miejsca.</small>
             </div>
             <div id="wykres-jednostki" class="mb-3" style="column-width: 16rem; font-size: 0.9em;"></div>
-            <div class="row">
+            <div id="wykres-brak" class="alert alert-secondary d-none"></div>
+            <div class="row" id="wykres-wykresy">
                 <div class="col-lg-6 mb-3">
                     <div class="small font-weight-bold mb-1">Łączna liczba głosów</div>
                     <div style="position: relative; height: 320px;"><canvas id="wykres-glosy"></canvas></div>
                 </div>
                 <div class="col-lg-6 mb-3">
-                    <div class="small font-weight-bold mb-1">Przyrost od poprzedniego pomiaru</div>
+                    <div class="small font-weight-bold mb-1" id="wykres-przyrost-tytul">Przyrost</div>
                     <div style="position: relative; height: 320px;"><canvas id="wykres-przyrost"></canvas></div>
                 </div>
             </div>
@@ -338,38 +340,38 @@
 @section('skrypty')
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
-    // wykres konkurencji: glosy i przyrost miedzy pomiarami dla zaznaczonych jednostek
+    // wykres postepow konkurencji: glosy i przyrost (godzinowo / dziennie / tygodniowo) dla zaznaczonych jednostek
     $(function () {
         var dane = @json($konkurencja['wykres']);
-        if (dane.czasy.length < 2 || !window.Chart) {
+        if (!dane.jednostki.length || !window.Chart) {
             return;
         }
         // kolor przypisany do jednostki na czas zaznaczenia - nie zmienia sie przy zmianie wyboru
         var KOLORY = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'];
+        // zakresy: liczba ostatnich punktow (0 = wszystkie)
+        var TRYBY = {
+            godzinowo: {tytul: 'Przyrost na godzinę (między pomiarami)', zakresy: [['24 h', 24], ['3 dni', 72], ['7 dni', 0]], brak: 'Brak odczytów godzinowych - pojawią się po dwóch kolejnych uruchomieniach CRON-a.'},
+            dziennie: {tytul: 'Przyrost dzienny', zakresy: [['7 dni', 7], ['14 dni', 14], ['30 dni', 30], ['Wszystko', 0]], brak: 'Brak danych dziennych.'},
+            tygodniowo: {tytul: 'Przyrost tygodniowy', zakresy: [['8 tyg.', 8], ['Wszystko', 0]], brak: 'Brak danych tygodniowych.'}
+        };
         var kolorJednostki = {};
-        var godziny = 24;
-
-        dane.serie.forEach(function (s) {
-            // przyrost wzgledem poprzedniego odczytu tej jednostki (brak odczytu = przerwa)
-            s.przyrost = s.glosy.map(function (g, i) {
-                return i > 0 && g !== null && s.glosy[i - 1] !== null ? g - s.glosy[i - 1] : null;
-            });
-        });
+        var tryb = dane.tryby.dziennie.etykiety.length ? 'dziennie' : 'godzinowo';
+        var zakres = null;
 
         var lista = $('#wykres-jednostki');
-        dane.serie.forEach(function (s, i) {
+        dane.jednostki.forEach(function (j, i) {
             var id = 'wj-' + i;
             lista.append($('<div class="custom-control custom-checkbox">').append(
                 $('<input type="checkbox" class="custom-control-input">').attr('id', id).val(i).prop('checked', i < 3),
                 $('<label class="custom-control-label">').attr('for', id).append(
                     $('<span class="wj-kolor d-inline-block mr-1">').css({width: 10, height: 10, borderRadius: 2, verticalAlign: 'middle'}),
-                    document.createTextNode(s.pozycja + '. ' + s.nazwa),
-                    s.nasza ? $('<strong>').text(' (my)') : null
+                    document.createTextNode((j.pozycja ? j.pozycja + '. ' : '') + j.nazwa),
+                    j.nasza ? $('<strong>').text(' (my)') : null
                 )
             ));
         });
 
-        function wspolne(tytulY) {
+        function opcje(przyrost) {
             return {
                 responsive: true,
                 maintainAspectRatio: false,
@@ -382,26 +384,37 @@
                         callbacks: {
                             label: function (c) {
                                 var v = c.parsed.y;
-                                return c.dataset.label + ': ' + (tytulY === 'przyrost' && v > 0 ? '+' : '') + v.toLocaleString('pl-PL');
+                                return c.dataset.label + ': ' + (przyrost && v > 0 ? '+' : '') + v.toLocaleString('pl-PL');
                             }
                         }
                     }
                 },
                 scales: {
                     x: {grid: {display: false}, ticks: {color: '#52514e', maxRotation: 0, autoSkipPadding: 12}},
-                    y: {beginAtZero: tytulY === 'przyrost', grid: {color: '#ecebe8'}, ticks: {color: '#52514e', precision: 0}}
+                    y: {beginAtZero: przyrost, grid: {color: '#ecebe8'}, ticks: {color: '#52514e', precision: 0}}
                 }
             };
         }
 
-        var wykresGlosy = new Chart(document.getElementById('wykres-glosy'), {type: 'line', data: {labels: [], datasets: []}, options: wspolne('glosy')});
-        var wykresPrzyrost = new Chart(document.getElementById('wykres-przyrost'), {type: 'line', data: {labels: [], datasets: []}, options: wspolne('przyrost')});
+        var wykresGlosy = new Chart(document.getElementById('wykres-glosy'), {type: 'line', data: {labels: [], datasets: []}, options: opcje(false)});
+        var wykresPrzyrost = new Chart(document.getElementById('wykres-przyrost'), {type: 'line', data: {labels: [], datasets: []}, options: opcje(true)});
 
-        function zbiorDanych(s, wartosci, kolor) {
+        function zbiorDanych(nazwa, wartosci, kolor, punkty) {
             return {
-                label: s.nazwa, data: wartosci, borderColor: kolor, backgroundColor: kolor,
-                borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, tension: 0, spanGaps: false
+                label: nazwa, data: wartosci, borderColor: kolor, backgroundColor: kolor,
+                borderWidth: 2, pointRadius: punkty ? 3 : 0, pointHoverRadius: 5, tension: 0, spanGaps: false
             };
+        }
+
+        function ustawTryb(nowy) {
+            tryb = nowy;
+            zakres = TRYBY[tryb].zakresy[0][1];
+            $('#wykres-tryb button').removeClass('active').filter('[data-tryb="' + tryb + '"]').addClass('active');
+            $('#wykres-zakres').empty().append(TRYBY[tryb].zakresy.map(function (z, i) {
+                return $('<button type="button" class="btn btn-outline-secondary">').toggleClass('active', i === 0).data('zakres', z[1]).text(z[0]);
+            }));
+            $('#wykres-przyrost-tytul').text(TRYBY[tryb].tytul);
+            rysuj();
         }
 
         function rysuj() {
@@ -424,29 +437,36 @@
                     .closest('.custom-control').find('.wj-kolor').css({background: k || 'transparent', border: k ? 'none' : '1px solid #c3c2b7'});
             });
 
-            // zakres: N ostatnich odczytow (CRON co godzine, wiec ok. N godzin)
-            var n = dane.czasy.length;
-            var start = Math.max(0, n - 1 - godziny);
-            var etykiety = dane.czasy.slice(start);
-            wykresGlosy.data.labels = etykiety;
-            wykresPrzyrost.data.labels = etykiety;
+            var d = dane.tryby[tryb];
+            var n = d.etykiety.length;
+            $('#wykres-brak').text(TRYBY[tryb].brak).toggleClass('d-none', n >= 2);
+            $('#wykres-wykresy').toggleClass('d-none', n < 2);
+
+            var start = zakres ? Math.max(0, n - zakres) : 0;
+            var punkty = n - start <= 31;
+            wykresGlosy.data.labels = wykresPrzyrost.data.labels = d.etykiety.slice(start);
             wykresGlosy.data.datasets = zaznaczone.map(function (i) {
-                return zbiorDanych(dane.serie[i], dane.serie[i].glosy.slice(start), kolorJednostki[i]);
+                var nazwa = dane.jednostki[i].nazwa;
+                return zbiorDanych(nazwa, (d.glosy[nazwa] || []).slice(start), kolorJednostki[i], punkty);
             });
             wykresPrzyrost.data.datasets = zaznaczone.map(function (i) {
-                return zbiorDanych(dane.serie[i], dane.serie[i].przyrost.slice(start), kolorJednostki[i]);
+                var nazwa = dane.jednostki[i].nazwa;
+                return zbiorDanych(nazwa, (d.przyrost[nazwa] || []).slice(start), kolorJednostki[i], punkty);
             });
             wykresGlosy.update();
             wykresPrzyrost.update();
         }
 
         lista.on('change', 'input', rysuj);
+        $('#wykres-tryb').on('click', 'button', function () {
+            ustawTryb($(this).data('tryb'));
+        });
         $('#wykres-zakres').on('click', 'button', function () {
             $(this).addClass('active').siblings().removeClass('active');
-            godziny = +$(this).data('godziny');
+            zakres = +$(this).data('zakres');
             rysuj();
         });
-        rysuj();
+        ustawTryb(tryb);
     });
 
     $(function () {

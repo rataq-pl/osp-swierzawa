@@ -1058,58 +1058,108 @@ public function generateImage($img){
             'jednostki' => $jednostki,
             'najwiecej' => $najwiecej,
             'pomiar' => $odczyty['pomiar'],
-            'wykres' => $odczyty['wykres'],
+            'wykres' => $this->konkurencjaWykres($jednostki, $odczyty['godzinowo']),
         ];
     }
 
-    // godzinne odczyty z ostatnich dni: przyrost od poprzedniego pomiaru i dane do wykresu
+    // godzinne odczyty z ostatnich dni: przyrost miedzy dwoma ostatnimi pomiarami i seria godzinowa do wykresu
     private function konkurencjaOdczyty($dni = 7)
     {
         $wiersze = DB::table('harnas_konkurencja_odczyty')
             ->where('created_at', '>=', now()->subDays($dni))
-            ->orderBy('created_at')->get(['nazwa', 'pozycja', 'glosy', 'created_at']);
+            ->orderBy('created_at')->get(['nazwa', 'glosy', 'created_at']);
         $czasy = $wiersze->pluck('created_at')->unique()->values();
         $indeks = $czasy->flip();
 
-        $serie = [];
+        $glosy = [];
         foreach ($wiersze->groupBy('nazwa') as $nazwa => $odczyty) {
-            $glosy = array_fill(0, $czasy->count(), null);
+            $glosy[$nazwa] = array_fill(0, $czasy->count(), null);
             foreach ($odczyty as $o) {
-                $glosy[$indeks[$o->created_at]] = (int) $o->glosy;
+                $glosy[$nazwa][$indeks[$o->created_at]] = (int) $o->glosy;
             }
-            $serie[$nazwa] = [
-                'nazwa' => $nazwa,
-                'pozycja' => (int) $odczyty->last()->pozycja,
-                'nasza' => mb_strtolower($nazwa) == mb_strtolower(Harnas::NAZWA),
-                'glosy' => $glosy,
-            ];
         }
+        $przyrost = array_map(fn ($g) => $this->przyrostySerii($g), $glosy);
 
         // przyrost miedzy dwoma ostatnimi pomiarami (tylko jednostki obecne w obu)
-        $ostatni = [];
-        $pomiar = null;
         $n = $czasy->count();
-        if ($n >= 2) {
-            foreach ($serie as $nazwa => $s) {
-                if ($s['glosy'][$n - 1] !== null && $s['glosy'][$n - 2] !== null) {
-                    $ostatni[$nazwa] = $s['glosy'][$n - 1] - $s['glosy'][$n - 2];
-                }
-            }
-            $pomiar = [
-                'od' => \Carbon\Carbon::parse($czasy[$n - 2], 'UTC')->tz('Europe/Warsaw'),
-                'do' => \Carbon\Carbon::parse($czasy[$n - 1], 'UTC')->tz('Europe/Warsaw'),
-            ];
-        }
-
-        $serie = collect($serie)->sortBy('pozycja')->values();
+        $ostatni = $n >= 2 ? array_filter(array_map(fn ($p) => $p[$n - 1], $przyrost), fn ($p) => $p !== null) : [];
+        $czas = fn ($c) => \Carbon\Carbon::parse($c, 'UTC')->tz('Europe/Warsaw');
 
         return [
             'ostatni' => $ostatni,
-            'pomiar' => $pomiar,
-            'wykres' => [
-                'czasy' => $czasy->map(fn ($c) => \Carbon\Carbon::parse($c, 'UTC')->tz('Europe/Warsaw')->format('d.m H:i'))->values(),
-                'serie' => $serie,
+            'pomiar' => $n >= 2 ? ['od' => $czas($czasy[$n - 2]), 'do' => $czas($czasy[$n - 1])] : null,
+            'godzinowo' => [
+                'etykiety' => $czasy->map(fn ($c) => $czas($c)->format('d.m H:i'))->values(),
+                'glosy' => $glosy,
+                'przyrost' => $przyrost,
             ],
+        ];
+    }
+
+    // przyrost wzgledem poprzedniego punktu serii; gdy go brakuje - od pierwszego odczytu dnia (o ile podany)
+    private function przyrostySerii(array $glosy, array $rano = [])
+    {
+        $wynik = [];
+        foreach ($glosy as $i => $g) {
+            if ($g === null) {
+                $wynik[] = null;
+            } elseif ($i > 0 && $glosy[$i - 1] !== null) {
+                $wynik[] = $g - $glosy[$i - 1];
+            } else {
+                $wynik[] = isset($rano[$i]) ? $g - $rano[$i] : null;
+            }
+        }
+
+        return $wynik;
+    }
+
+    // dane wykresu postepow: godzinowo (odczyty co godzine), dziennie i tygodniowo (podsumowania dni)
+    private function konkurencjaWykres(array $jednostki, array $godzinowo, $dni = 365)
+    {
+        $wiersze = DB::table('harnas_konkurencja')
+            ->where('data', '>=', now('Europe/Warsaw')->subDays($dni)->toDateString())
+            ->orderBy('data')->get(['data', 'nazwa', 'glosy', 'glosy_rano']);
+        $daty = $wiersze->pluck('data')->unique()->values();
+        $indeks = $daty->flip();
+
+        $dziennie = ['etykiety' => $daty->map(fn ($d) => \Carbon\Carbon::parse($d)->format('d.m'))->values(), 'glosy' => [], 'przyrost' => []];
+        foreach ($wiersze->groupBy('nazwa') as $nazwa => $odczyty) {
+            $glosy = $rano = array_fill(0, $daty->count(), null);
+            foreach ($odczyty as $o) {
+                $glosy[$indeks[$o->data]] = (int) $o->glosy;
+                $rano[$indeks[$o->data]] = (int) $o->glosy_rano;
+            }
+            $dziennie['glosy'][$nazwa] = $glosy;
+            $dziennie['przyrost'][$nazwa] = $this->przyrostySerii($glosy, $rano);
+        }
+
+        // tygodnie od poniedzialku: glosy na koniec tygodnia, przyrost = suma przyrostow dziennych
+        $tygodnie = $daty->keys()->groupBy(fn ($i) => \Carbon\Carbon::parse($daty[$i])->startOfWeek()->toDateString());
+        $tygodniowo = [
+            'etykiety' => $tygodnie->keys()->map(fn ($t) => \Carbon\Carbon::parse($t)->format('d.m').'–'.\Carbon\Carbon::parse($t)->addDays(6)->format('d.m'))->values(),
+            'glosy' => [],
+            'przyrost' => [],
+        ];
+        foreach ($dziennie['glosy'] as $nazwa => $glosy) {
+            foreach ($tygodnie as $dniTygodnia) {
+                $g = collect($dniTygodnia)->map(fn ($i) => $glosy[$i])->filter(fn ($v) => $v !== null);
+                $p = collect($dniTygodnia)->map(fn ($i) => $dziennie['przyrost'][$nazwa][$i])->filter(fn ($v) => $v !== null);
+                $tygodniowo['glosy'][$nazwa][] = $g->isEmpty() ? null : $g->last();
+                $tygodniowo['przyrost'][$nazwa][] = $p->isEmpty() ? null : $p->sum();
+            }
+        }
+
+        // jednostki w kolejnosci aktualnego rankingu, te spoza tabeli na koncu
+        $lista = collect($jednostki)->map(fn ($j) => ['nazwa' => $j['nazwa'], 'pozycja' => $j['pozycja'], 'nasza' => $j['nasza']]);
+        foreach (array_keys($godzinowo['glosy'] + $dziennie['glosy']) as $nazwa) {
+            if (!$lista->contains('nazwa', $nazwa)) {
+                $lista->push(['nazwa' => $nazwa, 'pozycja' => null, 'nasza' => false]);
+            }
+        }
+
+        return [
+            'jednostki' => $lista->values(),
+            'tryby' => ['godzinowo' => $godzinowo, 'dziennie' => $dziennie, 'tygodniowo' => $tygodniowo],
         ];
     }
 

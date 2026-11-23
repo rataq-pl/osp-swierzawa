@@ -19,6 +19,9 @@ class HarnasKonkurencja extends Command
 
     const STREFA = 'Europe/Warsaw';
 
+    // jak dlugo trzymamy pojedyncze odczyty godzinne (wykres w panelu)
+    const ODCZYTY_DNI = 30;
+
     public function handle(): int
     {
         $pozycje = [];
@@ -45,6 +48,8 @@ class HarnasKonkurencja extends Command
         }
 
         $dzien = now(self::STREFA)->toDateString();
+        // wspolny czas odczytu dla wszystkich jednostek - po nim wykres laczy pomiary
+        $teraz = now()->startOfMinute();
         foreach ($pozycje as $nazwa => $p) {
             $istniejacy = DB::table('harnas_konkurencja')->where('data', $dzien)->where('nazwa', $nazwa)->exists();
             if ($istniejacy) {
@@ -53,8 +58,11 @@ class HarnasKonkurencja extends Command
             } else {
                 DB::table('harnas_konkurencja')->insert($p + ['data' => $dzien, 'nazwa' => $nazwa, 'glosy_rano' => $p['glosy'], 'updated_at' => now()]);
             }
+            DB::table('harnas_konkurencja_odczyty')->insert($p + ['nazwa' => $nazwa, 'created_at' => $teraz]);
             $this->line($p['pozycja'].'. '.$nazwa.' - '.$p['glosy']);
         }
+
+        DB::table('harnas_konkurencja_odczyty')->where('created_at', '<', now()->subDays(self::ODCZYTY_DNI))->delete();
 
         return self::SUCCESS;
     }

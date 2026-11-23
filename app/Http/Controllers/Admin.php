@@ -1046,7 +1046,71 @@ public function generateImage($img){
             $najwiecej[$data] = collect($jednostki)->max(fn ($j) => $j['przyrosty'][$data]['glosy'] ?? null);
         }
 
-        return ['daty' => $daty, 'jednostki' => $jednostki, 'najwiecej' => $najwiecej];
+        $odczyty = $this->konkurencjaOdczyty();
+        foreach ($jednostki as &$j) {
+            $j['ostatni'] = $odczyty['ostatni'][$j['nazwa']] ?? null;
+        }
+        unset($j);
+        $najwiecej['ostatni'] = collect($jednostki)->max(fn ($j) => $j['ostatni']);
+
+        return [
+            'daty' => $daty,
+            'jednostki' => $jednostki,
+            'najwiecej' => $najwiecej,
+            'pomiar' => $odczyty['pomiar'],
+            'wykres' => $odczyty['wykres'],
+        ];
+    }
+
+    // godzinne odczyty z ostatnich dni: przyrost od poprzedniego pomiaru i dane do wykresu
+    private function konkurencjaOdczyty($dni = 7)
+    {
+        $wiersze = DB::table('harnas_konkurencja_odczyty')
+            ->where('created_at', '>=', now()->subDays($dni))
+            ->orderBy('created_at')->get(['nazwa', 'pozycja', 'glosy', 'created_at']);
+        $czasy = $wiersze->pluck('created_at')->unique()->values();
+        $indeks = $czasy->flip();
+
+        $serie = [];
+        foreach ($wiersze->groupBy('nazwa') as $nazwa => $odczyty) {
+            $glosy = array_fill(0, $czasy->count(), null);
+            foreach ($odczyty as $o) {
+                $glosy[$indeks[$o->created_at]] = (int) $o->glosy;
+            }
+            $serie[$nazwa] = [
+                'nazwa' => $nazwa,
+                'pozycja' => (int) $odczyty->last()->pozycja,
+                'nasza' => mb_strtolower($nazwa) == mb_strtolower(Harnas::NAZWA),
+                'glosy' => $glosy,
+            ];
+        }
+
+        // przyrost miedzy dwoma ostatnimi pomiarami (tylko jednostki obecne w obu)
+        $ostatni = [];
+        $pomiar = null;
+        $n = $czasy->count();
+        if ($n >= 2) {
+            foreach ($serie as $nazwa => $s) {
+                if ($s['glosy'][$n - 1] !== null && $s['glosy'][$n - 2] !== null) {
+                    $ostatni[$nazwa] = $s['glosy'][$n - 1] - $s['glosy'][$n - 2];
+                }
+            }
+            $pomiar = [
+                'od' => \Carbon\Carbon::parse($czasy[$n - 2], 'UTC')->tz('Europe/Warsaw'),
+                'do' => \Carbon\Carbon::parse($czasy[$n - 1], 'UTC')->tz('Europe/Warsaw'),
+            ];
+        }
+
+        $serie = collect($serie)->sortBy('pozycja')->values();
+
+        return [
+            'ostatni' => $ostatni,
+            'pomiar' => $pomiar,
+            'wykres' => [
+                'czasy' => $czasy->map(fn ($c) => \Carbon\Carbon::parse($c, 'UTC')->tz('Europe/Warsaw')->format('d.m H:i'))->values(),
+                'serie' => $serie,
+            ],
+        ];
     }
 
     public function przekierowaniaZapisz(Request $request)

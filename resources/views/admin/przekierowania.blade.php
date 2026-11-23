@@ -128,6 +128,12 @@
         <p class="text-muted">
             Przyrost głosów pierwszych 20 jednostek rankingu osp-harnas.pl w kolejnych dniach (odczyt co godzinę, ostatni o 23:55).
             Pogrubiony jest największy przyrost danego dnia. Gwiazdka (*) oznacza przyrost liczony od pierwszego odczytu tego dnia, bo brakuje odczytu z dnia poprzedniego.
+            Kolumna „Ost. pomiar” to przyrost między dwoma ostatnimi odczytami
+            @if($konkurencja['pomiar'])
+                ({{ $konkurencja['pomiar']['od']->format('H:i') }} → {{ $konkurencja['pomiar']['do']->format('d.m H:i') }}).
+            @else
+                (pojawi się po drugim odczycie).
+            @endif
         </p>
         @if(!$konkurencja['jednostki'])
             <div class="alert alert-secondary">Brak danych - pojawią się po pierwszym uruchomieniu <code>php artisan harnas:konkurencja</code>.</div>
@@ -138,6 +144,7 @@
                         <th>#</th>
                         <th>Jednostka</th>
                         <th class="text-right">Głosy</th>
+                        <th class="text-right" title="Przyrost od poprzedniego odczytu">Ost. pomiar</th>
                         <th class="text-right">7 dni</th>
                         @foreach($konkurencja['daty'] as $data)
                             <th class="text-right">{{ \Carbon\Carbon::parse($data)->format('d.m') }}</th>
@@ -149,6 +156,15 @@
                                 <td>{{$j['pozycja'] ?? '-'}}</td>
                                 <td>{{$j['nazwa']}}</td>
                                 <td class="text-right">{{ $j['glosy'] !== null ? number_format($j['glosy'], 0, ',', ' ') : '-' }}</td>
+                                <td class="text-right table-info">
+                                    @if($j['ostatni'] === null)
+                                        -
+                                    @elseif($j['ostatni'] > 0 && $j['ostatni'] == $konkurencja['najwiecej']['ostatni'])
+                                        <strong class="text-success">+{{$j['ostatni']}}</strong>
+                                    @else
+                                        +{{$j['ostatni']}}
+                                    @endif
+                                </td>
                                 <td class="text-right"><strong>+{{ number_format($j['tydzien'], 0, ',', ' ') }}</strong></td>
                                 @foreach($konkurencja['daty'] as $data)
                                     @php($p = $j['przyrosty'][$data] ?? null)
@@ -169,6 +185,29 @@
                         @endforeach
                     </tbody>
                 </table>
+            </div>
+        @endif
+
+        @if(count($konkurencja['wykres']['czasy']) >= 2)
+            <h5 class="mt-4" id="konkurencja-wykres">Głosy i przyrost między pomiarami</h5>
+            <div class="d-flex mb-2" style="flex-wrap: wrap; align-items: center; gap: .5rem;">
+                <div class="btn-group btn-group-sm" role="group" id="wykres-zakres">
+                    <button type="button" class="btn btn-outline-secondary active" data-godziny="24">24 h</button>
+                    <button type="button" class="btn btn-outline-secondary" data-godziny="72">3 dni</button>
+                    <button type="button" class="btn btn-outline-secondary" data-godziny="168">7 dni</button>
+                </div>
+                <small class="text-muted">Zaznacz jednostki do porównania (najwyżej 8 naraz). Domyślnie pierwsze 3 miejsca.</small>
+            </div>
+            <div id="wykres-jednostki" class="mb-3" style="column-width: 16rem; font-size: 0.9em;"></div>
+            <div class="row">
+                <div class="col-lg-6 mb-3">
+                    <div class="small font-weight-bold mb-1">Łączna liczba głosów</div>
+                    <div style="position: relative; height: 320px;"><canvas id="wykres-glosy"></canvas></div>
+                </div>
+                <div class="col-lg-6 mb-3">
+                    <div class="small font-weight-bold mb-1">Przyrost od poprzedniego pomiaru</div>
+                    <div style="position: relative; height: 320px;"><canvas id="wykres-przyrost"></canvas></div>
+                </div>
             </div>
         @endif
 
@@ -297,7 +336,119 @@
 @endsection
 
 @section('skrypty')
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
+    // wykres konkurencji: glosy i przyrost miedzy pomiarami dla zaznaczonych jednostek
+    $(function () {
+        var dane = @json($konkurencja['wykres']);
+        if (dane.czasy.length < 2 || !window.Chart) {
+            return;
+        }
+        // kolor przypisany do jednostki na czas zaznaczenia - nie zmienia sie przy zmianie wyboru
+        var KOLORY = ['#2a78d6', '#eb6834', '#1baf7a', '#eda100', '#e87ba4', '#008300', '#6250d6', '#e34948'];
+        var kolorJednostki = {};
+        var godziny = 24;
+
+        dane.serie.forEach(function (s) {
+            // przyrost wzgledem poprzedniego odczytu tej jednostki (brak odczytu = przerwa)
+            s.przyrost = s.glosy.map(function (g, i) {
+                return i > 0 && g !== null && s.glosy[i - 1] !== null ? g - s.glosy[i - 1] : null;
+            });
+        });
+
+        var lista = $('#wykres-jednostki');
+        dane.serie.forEach(function (s, i) {
+            var id = 'wj-' + i;
+            lista.append($('<div class="custom-control custom-checkbox">').append(
+                $('<input type="checkbox" class="custom-control-input">').attr('id', id).val(i).prop('checked', i < 3),
+                $('<label class="custom-control-label">').attr('for', id).append(
+                    $('<span class="wj-kolor d-inline-block mr-1">').css({width: 10, height: 10, borderRadius: 2, verticalAlign: 'middle'}),
+                    document.createTextNode(s.pozycja + '. ' + s.nazwa),
+                    s.nasza ? $('<strong>').text(' (my)') : null
+                )
+            ));
+        });
+
+        function wspolne(tytulY) {
+            return {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                interaction: {mode: 'index', intersect: false},
+                plugins: {
+                    legend: {position: 'bottom', labels: {boxWidth: 12, color: '#52514e'}},
+                    tooltip: {
+                        itemSort: function (a, b) { return (b.parsed.y || 0) - (a.parsed.y || 0); },
+                        callbacks: {
+                            label: function (c) {
+                                var v = c.parsed.y;
+                                return c.dataset.label + ': ' + (tytulY === 'przyrost' && v > 0 ? '+' : '') + v.toLocaleString('pl-PL');
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {grid: {display: false}, ticks: {color: '#52514e', maxRotation: 0, autoSkipPadding: 12}},
+                    y: {beginAtZero: tytulY === 'przyrost', grid: {color: '#ecebe8'}, ticks: {color: '#52514e', precision: 0}}
+                }
+            };
+        }
+
+        var wykresGlosy = new Chart(document.getElementById('wykres-glosy'), {type: 'line', data: {labels: [], datasets: []}, options: wspolne('glosy')});
+        var wykresPrzyrost = new Chart(document.getElementById('wykres-przyrost'), {type: 'line', data: {labels: [], datasets: []}, options: wspolne('przyrost')});
+
+        function zbiorDanych(s, wartosci, kolor) {
+            return {
+                label: s.nazwa, data: wartosci, borderColor: kolor, backgroundColor: kolor,
+                borderWidth: 2, pointRadius: 0, pointHoverRadius: 4, tension: 0, spanGaps: false
+            };
+        }
+
+        function rysuj() {
+            var zaznaczone = lista.find('input:checked').map(function () { return +this.value; }).get();
+            // zwalniamy kolory odznaczonych, nowo zaznaczonym dajemy pierwszy wolny
+            Object.keys(kolorJednostki).forEach(function (i) {
+                if (zaznaczone.indexOf(+i) < 0) {
+                    delete kolorJednostki[i];
+                }
+            });
+            zaznaczone.forEach(function (i) {
+                if (!kolorJednostki[i]) {
+                    var zajete = Object.values(kolorJednostki);
+                    kolorJednostki[i] = KOLORY.find(function (k) { return zajete.indexOf(k) < 0; });
+                }
+            });
+            lista.find('input').each(function () {
+                var k = kolorJednostki[+this.value];
+                $(this).prop('disabled', !this.checked && zaznaczone.length >= KOLORY.length)
+                    .closest('.custom-control').find('.wj-kolor').css({background: k || 'transparent', border: k ? 'none' : '1px solid #c3c2b7'});
+            });
+
+            // zakres: N ostatnich odczytow (CRON co godzine, wiec ok. N godzin)
+            var n = dane.czasy.length;
+            var start = Math.max(0, n - 1 - godziny);
+            var etykiety = dane.czasy.slice(start);
+            wykresGlosy.data.labels = etykiety;
+            wykresPrzyrost.data.labels = etykiety;
+            wykresGlosy.data.datasets = zaznaczone.map(function (i) {
+                return zbiorDanych(dane.serie[i], dane.serie[i].glosy.slice(start), kolorJednostki[i]);
+            });
+            wykresPrzyrost.data.datasets = zaznaczone.map(function (i) {
+                return zbiorDanych(dane.serie[i], dane.serie[i].przyrost.slice(start), kolorJednostki[i]);
+            });
+            wykresGlosy.update();
+            wykresPrzyrost.update();
+        }
+
+        lista.on('change', 'input', rysuj);
+        $('#wykres-zakres').on('click', 'button', function () {
+            $(this).addClass('active').siblings().removeClass('active');
+            godziny = +$(this).data('godziny');
+            rysuj();
+        });
+        rysuj();
+    });
+
     $(function () {
         var modal = $('#bezPrzekierowania');
         var zapytanie = null;

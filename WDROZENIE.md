@@ -78,7 +78,7 @@ przekierowuje je wg reguł z panelu **Przekierowania e-mail** (`/admin/przekiero
 i oznacza jako przeczytane. Test bez wysyłki: `php artisan harnas:przekierowania --dry-run`.
 
 Ten sam CRON co godzinę (o :55) uruchamia `harnas:konkurencja` - zapisuje głosy pierwszych 20 jednostek rankingu
-osp-harnas.pl (tabela `harnas_konkurencja`), z których panel **Przekierowania e-mail** pokazuje dzienne przyrosty głosów.
+osp-harnas.pl (tabela `harnas_konkurencja`), z których panel **Przekierowania e-mail** pokazuje dzienne przyrosty głosów. Każdy odczyt trafia też do `harnas_konkurencja_odczyty` (trzymane 30 dni) - z nich jest kolumna „Ost. pomiar” i wykres głosów/przyrostu.
 
 ### 7. Generowanie sitemap
 Odwiedź: https://osp-swierzawa.pl/sitemap

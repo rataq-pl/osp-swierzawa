@@ -98,6 +98,8 @@ Route::middleware(['auth'])->group(function(){
     Route::post('admin/przekierowania', [Admin::class, 'przekierowaniaZapisz']);
     Route::post('admin/przekierowania/usun/{id}', [Admin::class, 'przekierowaniaUsun']);
     Route::get('admin/przekierowania/do-otwarcia', [Admin::class, 'przekierowaniaDoOtwarcia']);
+    Route::post('admin/przekierowania/skrzynki', [Admin::class, 'przekierowaniaSkrzynki']);
+    Route::post('admin/przekierowania/czysc', [Admin::class, 'przekierowaniaCzysc']);
     Route::get('admin/przekierowania/podglad/{id}', [Admin::class, 'przekierowaniaPodglad']);
     Route::get('admin/przekierowania/maile/{id}', [Admin::class, 'przekierowaniaMaile']);
     Route::post('admin/przekierowania/potwierdzono/{id}', [Admin::class, 'przekierowaniaPotwierdzono']);

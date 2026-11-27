@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Console\Commands\HarnasPrzekierowania;
+use App\Services\HarnasSkrzynki;
 use App\Services\ImapKlient;
 use App\Services\MimeTresc;
 use Illuminate\Http\Request;
@@ -850,23 +851,22 @@ public function generateImage($img){
         return back()->with('komunikat', $komunikat);
     }
 
-    // skrzynki, z ktorych program harnas-potwierdzanie otwiera linki - dane na sztywno (tymczasowo)
-    const SKRZYNKI_DO_OTWARCIA = ['harnas@konvy.pl', 'harnas@prpanel.pl'];
-
-    // JSON: ile dzisiejszych maili od osp-harnas.pl czeka w kazdej skrzynce ("do otwarcia" jak w programie -
-    // program bierze tylko dzisiejsze maile, a otwarte usuwa ze skrzynki)
+    // JSON: ile dzisiejszych maili od nadawcy (osp-harnas.pl) czeka w kazdej skrzynce ("do otwarcia" jak w programie
+    // harnas-potwierdzanie - program bierze tylko dzisiejsze maile, a otwarte usuwa ze skrzynki)
     public function przekierowaniaDoOtwarcia()
     {
         $dane = cache()->remember('harnas_do_otwarcia', 20, function () {
+            $u = HarnasSkrzynki::wczytaj();
             $dzis = now('Europe/Warsaw')->locale('en')->format('d-M-Y');
+            $od = 'FROM "'.addcslashes($u['nadawca'], '"\\').'"';
             $wynik = [];
-            foreach (self::SKRZYNKI_DO_OTWARCIA as $mail) {
+            foreach ($u['skrzynki'] as $i => $mail) {
                 try {
-                    $imap = new \App\Services\ImapKlient('h50.seohost.pl', 993, $mail, 'Harnas1!', 10);
+                    $imap = HarnasSkrzynki::polacz($i);
                     $wynik[] = [
                         'mail' => $mail,
-                        'do_otwarcia' => count($imap->szukaj('SINCE '.$dzis.' NOT DELETED FROM "osp-harnas.pl"')),
-                        'wszystkie' => count($imap->szukaj('NOT DELETED FROM "osp-harnas.pl"')),
+                        'do_otwarcia' => count($imap->szukaj('SINCE '.$dzis.' NOT DELETED '.$od)),
+                        'wszystkie' => count($imap->szukaj('NOT DELETED '.$od)),
                     ];
                     $imap->rozlacz();
                 } catch (\Exception $e) {
@@ -878,6 +878,49 @@ public function generateImage($img){
         });
 
         return response()->json($dane);
+    }
+
+    // zapis ustawien skrzynek (puste haslo = bez zmian)
+    public function przekierowaniaSkrzynki(Request $request)
+    {
+        $dane = $request->validate([
+            'host' => 'required|string|max:255',
+            'port' => 'required|integer|min:1|max:65535',
+            'skrzynki' => 'required|array|size:2',
+            'skrzynki.*' => 'required|email',
+            'nadawca' => 'required|string|max:255',
+            'haslo' => 'nullable|string|max:255',
+        ]);
+        HarnasSkrzynki::zapisz(['port' => (int) $dane['port'], 'skrzynki' => array_values($dane['skrzynki']), 'haslo' => (string) ($dane['haslo'] ?? '')] + $dane);
+        cache()->forget('harnas_do_otwarcia');
+
+        return redirect('/admin/przekierowania')->with('komunikat', $this->komunikat('success', 'Zapisano!', 'Ustawienia skrzynek zostały zapisane.'));
+    }
+
+    // trwale usuwa ze skrzynki (INBOX) maile odebrane przed podana data i godzina (czas polski) - partiami po
+    // CZYSC_PARTIA, panel (JS) wola az pozostalo = 0; sucho=1 tylko liczy (do potwierdzenia)
+    const CZYSC_PARTIA = 1000;
+
+    public function przekierowaniaCzysc(Request $request)
+    {
+        $request->validate([
+            'skrzynka' => 'required|integer|in:0,1',
+            'granica' => 'required|date_format:Y-m-d\TH:i',
+        ]);
+        $granica = \Carbon\CarbonImmutable::createFromFormat('Y-m-d\TH:i', $request->get('granica'), 'Europe/Warsaw')->startOfMinute();
+
+        try {
+            $imap = HarnasSkrzynki::polacz((int) $request->get('skrzynka'), 60);
+            $wynik = $request->boolean('sucho')
+                ? $imap->usunStarsze($granica, 0, true)
+                : $imap->usunStarsze($granica, self::CZYSC_PARTIA);
+            $imap->rozlacz();
+        } catch (\Exception $e) {
+            return response()->json(['blad' => $e->getMessage()], 500);
+        }
+        cache()->forget('harnas_do_otwarcia');
+
+        return response()->json($wynik + ['granica' => $granica->format('d.m.Y H:i')]);
     }
 
     // Przekierowania poczty ze skrzynki harnas@ (CRON harnas:przekierowania)
@@ -896,6 +939,7 @@ public function generateImage($img){
             'bezPrzekierowania' => DB::table('harnas_przekierowania_log')->where('status', 'brak_reguly')->orderByDesc('id')->limit(200)->get(),
             'adresaci' => $this->adresaci(),
             'skrzynka' => config('services.harnas.mail'),
+            'skrzynkiHarnas' => HarnasSkrzynki::wczytaj(),
             'konkurencja' => $this->konkurencja(),
             'komunikat' => session('komunikat'),
         ]);

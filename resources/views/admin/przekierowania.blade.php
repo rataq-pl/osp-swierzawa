@@ -9,13 +9,38 @@
             <h3 class="title">Przekierowania poczty {{$skrzynka}}</h3>
         </div>
 
-        <div class="d-flex mb-4" id="do-otwarcia" style="gap: 16px; flex-wrap: wrap;">
-            @foreach(\App\Http\Controllers\Admin::SKRZYNKI_DO_OTWARCIA as $mail)
-                <div class="card text-center" data-mail="{{$mail}}" style="flex: 1; min-width: 220px;">
+        <div class="d-flex mb-4" id="do-otwarcia" style="gap: 16px; flex-wrap: wrap; align-items: stretch;">
+            <div class="card" style="flex: 1.2; min-width: 260px;">
+                <form action="/admin/przekierowania/skrzynki" method="post" class="card-body py-3 mb-0" style="font-size: 0.9em;">
+                    @csrf
+                    <div class="text-muted mb-2">Ustawienia skrzynek (IMAP)</div>
+                    <div class="d-flex mb-1" style="gap: 6px;">
+                        <input name="host" class="form-control form-control-sm" placeholder="serwer" value="{{$skrzynkiHarnas['host']}}" required/>
+                        <input name="port" type="number" class="form-control form-control-sm" style="max-width: 80px;" title="port IMAP SSL" value="{{$skrzynkiHarnas['port']}}" required/>
+                    </div>
+                    @foreach($skrzynkiHarnas['skrzynki'] as $i => $mail)
+                        <input name="skrzynki[{{$i}}]" type="email" class="form-control form-control-sm mb-1" placeholder="skrzynka {{$i + 1}}" value="{{$mail}}" required/>
+                    @endforeach
+                    <input name="haslo" type="password" class="form-control form-control-sm mb-1" autocomplete="new-password"
+                           placeholder="{{ $skrzynkiHarnas['haslo'] !== '' ? 'hasło zapisane - wpisz, aby zmienić' : 'hasło (wspólne dla obu)' }}"/>
+                    <div class="d-flex" style="gap: 6px;">
+                        <input name="nadawca" class="form-control form-control-sm" title="liczone są maile od tego nadawcy / domeny" value="{{$skrzynkiHarnas['nadawca']}}" required/>
+                        <button type="submit" class="btn btn-dark btn-sm mt-0">Zapisz</button>
+                    </div>
+                </form>
+            </div>
+            @foreach($skrzynkiHarnas['skrzynki'] as $i => $mail)
+                <div class="card text-center" data-skrzynka="{{$i}}" style="flex: 1; min-width: 220px;">
                     <div class="card-body py-3">
                         <div class="text-muted">{{$mail}} · do otwarcia</div>
                         <div class="licznik" style="font-size: 3em; font-weight: bold; line-height: 1.2;">…</div>
                         <div class="text-muted small opis">&nbsp;</div>
+                        <div class="d-flex mt-2" style="gap: 6px; justify-content: center; flex-wrap: wrap;">
+                            <input type="datetime-local" class="form-control form-control-sm granica" style="max-width: 190px; min-width: 0;"
+                                   value="{{ now('Europe/Warsaw')->subDay()->format('Y-m-d\TH:i') }}" title="usuń wszystko odebrane przed tą datą i godziną"/>
+                            <button type="button" class="btn btn-danger btn-sm mt-0 czysc" style="white-space: nowrap;">Czyść skrzynkę</button>
+                        </div>
+                        <div class="small mt-1 postep">&nbsp;</div>
                     </div>
                 </div>
             @endforeach
@@ -352,26 +377,84 @@
 @section('skrypty')
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
-    // boksy "do otwarcia": dzisiejsze maile od osp-harnas.pl w skrzynkach harnas-potwierdzanie, odswiezane co 30 s
+    // boksy "do otwarcia": dzisiejsze maile od nadawcy w skrzynkach harnas-potwierdzanie, odswiezane co 30 s
     $(function () {
+        var trwaCzyszczenie = {};
+
         function odswiez() {
             $.getJSON('/admin/przekierowania/do-otwarcia').done(function (d) {
-                d.skrzynki.forEach(function (s) {
-                    var box = $('#do-otwarcia [data-mail="' + s.mail + '"]');
+                d.skrzynki.forEach(function (s, i) {
+                    var box = $('#do-otwarcia [data-skrzynka="' + i + '"]');
                     if (s.blad) {
                         box.find('.licznik').text('?').addClass('text-danger');
                         box.find('.opis').text('Błąd: ' + s.blad + ' · ' + d.czas);
                     } else {
                         box.find('.licznik').text(s.do_otwarcia).removeClass('text-danger');
-                        box.find('.opis').text('wszystkich od osp-harnas.pl: ' + s.wszystkie + ' · ' + d.czas);
+                        box.find('.opis').text('wszystkich od nadawcy: ' + s.wszystkie + ' · ' + d.czas);
                     }
                 });
             }).fail(function () {
-                $('#do-otwarcia .opis').text('Błąd odświeżania - ponowię za 30 s');
+                $('#do-otwarcia [data-skrzynka] .opis').text('Błąd odświeżania - ponowię za 30 s');
             });
         }
         odswiez();
         setInterval(odswiez, 30000);
+
+        function blad(x) {
+            var d = x.responseJSON || {};
+            return d.blad || d.message || x.statusText || 'brak połączenia';
+        }
+
+        // "Czysc skrzynke": najpierw liczy maile do usuniecia, po potwierdzeniu usuwa partiami (kolejne krotkie
+        // zadania az pozostalo = 0) - strona nie czeka na jedno dlugie zadanie i pokazuje postep
+        $('#do-otwarcia .czysc').on('click', function () {
+            var przycisk = $(this), box = przycisk.closest('[data-skrzynka]'), nr = box.data('skrzynka');
+            var granica = box.find('.granica').val(), postep = box.find('.postep');
+            var mail = box.find('.text-muted').first().text().split(' · ')[0];
+            if (!granica || trwaCzyszczenie[nr]) {
+                return;
+            }
+            var dane = {_token: '{{ csrf_token() }}', skrzynka: nr, granica: granica};
+            przycisk.prop('disabled', true);
+            postep.removeClass('text-danger text-success').text('Liczę maile do usunięcia…');
+
+            $.post('/admin/przekierowania/czysc', $.extend({sucho: 1}, dane)).done(function (d) {
+                if (!d.usunieto) {
+                    postep.text('Brak maili odebranych przed ' + d.granica + '.');
+                    przycisk.prop('disabled', false);
+                    return;
+                }
+                if (!confirm('Trwale usunąć ze skrzynki ' + mail + ' ' + d.usunieto + ' maili odebranych przed ' + d.granica + '?\nTej operacji nie da się cofnąć.')) {
+                    postep.html('&nbsp;');
+                    przycisk.prop('disabled', false);
+                    return;
+                }
+                var wszystkich = d.usunieto, usunieto = 0;
+                trwaCzyszczenie[nr] = true;
+                (function partia() {
+                    $.post('/admin/przekierowania/czysc', dane).done(function (r) {
+                        usunieto += r.usunieto;
+                        postep.text('Usunięto ' + usunieto + ' z ' + Math.max(wszystkich, usunieto + r.pozostalo) + '…');
+                        if (r.pozostalo > 0 && r.usunieto > 0) {
+                            partia();
+                            return;
+                        }
+                        trwaCzyszczenie[nr] = false;
+                        przycisk.prop('disabled', false);
+                        postep.addClass('text-success').text('Gotowe - usunięto ' + usunieto + ' maili sprzed ' + r.granica + '.');
+                        odswiez();
+                    }).fail(function (x) {
+                        trwaCzyszczenie[nr] = false;
+                        przycisk.prop('disabled', false);
+                        postep.addClass('text-danger').text('Przerwano po ' + usunieto + ' maili: ' + blad(x) + ' - kliknij ponownie, aby dokończyć.');
+                        odswiez();
+                    });
+                })();
+            }).fail(function (x) {
+                przycisk.prop('disabled', false);
+                postep.addClass('text-danger').text('Błąd: ' + blad(x));
+            });
+        });
     });
 
     // wykres postepow konkurencji: glosy i przyrost (godzinowo / dziennie / tygodniowo) dla zaznaczonych jednostek

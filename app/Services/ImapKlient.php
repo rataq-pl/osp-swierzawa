@@ -72,6 +72,84 @@ class ImapKlient
         return null;
     }
 
+    // trwale usuwa z INBOX wiadomosci odebrane przed $granica (z dokladnoscia do sekundy), najwyzej $limit
+    // naraz (0 = wszystkie) - przy tysiacach maili panel wola kilka razy, zeby zadanie nie przekroczylo czasu.
+    // Zwraca ['usunieto' => ile teraz, 'pozostalo' => ile jeszcze czeka]. $suchyBieg = true tylko liczy.
+    public function usunStarsze(\DateTimeInterface $granica, int $limit = 0, bool $suchyBieg = false): array
+    {
+        // SEARCH BEFORE porownuje same daty (wg strefy serwera) - kandydatow bierzemy z zapasem dnia,
+        // dokladna godzine sprawdzamy po INTERNALDATE
+        $dzienPo = \DateTimeImmutable::createFromInterface($granica)->modify('+2 days')->format('d-M-Y');
+        $starsze = [];
+        foreach ($this->daty($this->szukaj('BEFORE '.$dzienPo.' NOT DELETED')) as $uid => $odebrano) {
+            if ($odebrano < $granica) {
+                $starsze[] = $uid;
+            }
+        }
+        sort($starsze);
+        $teraz = $limit > 0 ? array_slice($starsze, 0, $limit) : $starsze;
+        if ($teraz && !$suchyBieg) {
+            foreach (array_chunk($teraz, 500) as $partia) {
+                $this->komenda('UID STORE '.self::zbior($partia).' +FLAGS.SILENT (\Deleted)');
+            }
+            $this->komenda('EXPUNGE');
+        }
+
+        return ['usunieto' => count($teraz), 'pozostalo' => count($starsze) - count($teraz)];
+    }
+
+    // uid => data odebrania (INTERNALDATE) dla podanych UID-ow
+    public function daty(array $uidy): array
+    {
+        $daty = [];
+        foreach (array_chunk($uidy, 1000) as $partia) {
+            foreach ($this->komenda('UID FETCH '.self::zbior($partia).' (UID INTERNALDATE)') as $wiersz) {
+                if (is_string($wiersz) && ($wynik = self::parsujDate($wiersz))) {
+                    $daty[$wynik[0]] = $wynik[1];
+                }
+            }
+        }
+
+        return $daty;
+    }
+
+    // "* 5 FETCH (UID 12 INTERNALDATE "27-Nov-2026 09:22:16 +0100")" -> [12, DateTimeImmutable]
+    public static function parsujDate(string $wiersz): ?array
+    {
+        if (preg_match('/^\* \d+ FETCH \(.*UID (\d+)/', $wiersz, $u) && preg_match('/INTERNALDATE "([^"]+)"/', $wiersz, $d)) {
+            $data = \DateTimeImmutable::createFromFormat('j-M-Y H:i:s O', trim($d[1]));
+            if ($data) {
+                return [(int) $u[1], $data];
+            }
+        }
+
+        return null;
+    }
+
+    // [1,2,3,7,9,10] -> "1:3,7,9:10" - krotsze komendy przy tysiacach wiadomosci
+    public static function zbior(array $uidy): string
+    {
+        $uidy = array_values(array_unique(array_map('intval', $uidy)));
+        sort($uidy);
+        $zakresy = [];
+        $start = $poprzedni = null;
+        foreach ($uidy as $uid) {
+            if ($poprzedni !== null && $uid === $poprzedni + 1) {
+                $poprzedni = $uid;
+                continue;
+            }
+            if ($start !== null) {
+                $zakresy[] = $start === $poprzedni ? (string) $start : $start.':'.$poprzedni;
+            }
+            $start = $poprzedni = $uid;
+        }
+        if ($start !== null) {
+            $zakresy[] = $start === $poprzedni ? (string) $start : $start.':'.$poprzedni;
+        }
+
+        return implode(',', $zakresy);
+    }
+
     public function oznaczPrzeczytana(int $uid): void
     {
         $this->komenda('UID STORE '.$uid.' +FLAGS.SILENT (\Seen)');

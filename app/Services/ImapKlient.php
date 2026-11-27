@@ -35,6 +35,19 @@ class ImapKlient
         return array_map('intval', $uidy);
     }
 
+    // UID-y wiadomosci pasujacych do kryteriow IMAP SEARCH (np. 'SINCE 27-Nov-2026 FROM "domena.pl"')
+    public function szukaj(string $kryteria): array
+    {
+        $uidy = [];
+        foreach ($this->komenda('UID SEARCH '.$kryteria) as $wiersz) {
+            if (is_string($wiersz) && preg_match('/^\* SEARCH ?(.*)$/', $wiersz, $m)) {
+                $uidy = array_merge($uidy, array_filter(explode(' ', trim($m[1]))));
+            }
+        }
+
+        return array_map('intval', $uidy);
+    }
+
     // cala wiadomosc (naglowki + tresc); BODY.PEEK nie ustawia flagi \Seen
     public function pobierz(int $uid): string
     {

@@ -8,6 +8,18 @@
         <div class="col-12 d-flex pb-3" style="justify-content: space-between;">
             <h3 class="title">Przekierowania poczty {{$skrzynka}}</h3>
         </div>
+
+        <div class="d-flex mb-4" id="do-otwarcia" style="gap: 16px; flex-wrap: wrap;">
+            @foreach(\App\Http\Controllers\Admin::SKRZYNKI_DO_OTWARCIA as $mail)
+                <div class="card text-center" data-mail="{{$mail}}" style="flex: 1; min-width: 220px;">
+                    <div class="card-body py-3">
+                        <div class="text-muted">{{$mail}} · do otwarcia</div>
+                        <div class="licznik" style="font-size: 3em; font-weight: bold; line-height: 1.2;">…</div>
+                        <div class="text-muted small opis">&nbsp;</div>
+                    </div>
+                </div>
+            @endforeach
+        </div>
         <p class="text-muted">
             Co minutę nowe wiadomości ze skrzynki {{$skrzynka}} są sprawdzane pod kątem aliasu, przez który trafiły
             (np. <code>dominika33@osp-swierzawa.pl</code>). Wzorzec <code>dominika*</code> lub sam początek <code>dominika</code>
@@ -340,6 +352,28 @@
 @section('skrypty')
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <script>
+    // boksy "do otwarcia": dzisiejsze maile od osp-harnas.pl w skrzynkach harnas-potwierdzanie, odswiezane co 30 s
+    $(function () {
+        function odswiez() {
+            $.getJSON('/admin/przekierowania/do-otwarcia').done(function (d) {
+                d.skrzynki.forEach(function (s) {
+                    var box = $('#do-otwarcia [data-mail="' + s.mail + '"]');
+                    if (s.blad) {
+                        box.find('.licznik').text('?').addClass('text-danger');
+                        box.find('.opis').text('Błąd: ' + s.blad + ' · ' + d.czas);
+                    } else {
+                        box.find('.licznik').text(s.do_otwarcia).removeClass('text-danger');
+                        box.find('.opis').text('wszystkich od osp-harnas.pl: ' + s.wszystkie + ' · ' + d.czas);
+                    }
+                });
+            }).fail(function () {
+                $('#do-otwarcia .opis').text('Błąd odświeżania - ponowię za 30 s');
+            });
+        }
+        odswiez();
+        setInterval(odswiez, 30000);
+    });
+
     // wykres postepow konkurencji: glosy i przyrost (godzinowo / dziennie / tygodniowo) dla zaznaczonych jednostek
     $(function () {
         var dane = @json($konkurencja['wykres']);

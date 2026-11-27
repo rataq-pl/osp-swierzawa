@@ -850,6 +850,36 @@ public function generateImage($img){
         return back()->with('komunikat', $komunikat);
     }
 
+    // skrzynki, z ktorych program harnas-potwierdzanie otwiera linki - dane na sztywno (tymczasowo)
+    const SKRZYNKI_DO_OTWARCIA = ['harnas@konvy.pl', 'harnas@prpanel.pl'];
+
+    // JSON: ile dzisiejszych maili od osp-harnas.pl czeka w kazdej skrzynce ("do otwarcia" jak w programie -
+    // program bierze tylko dzisiejsze maile, a otwarte usuwa ze skrzynki)
+    public function przekierowaniaDoOtwarcia()
+    {
+        $dane = cache()->remember('harnas_do_otwarcia', 20, function () {
+            $dzis = now('Europe/Warsaw')->locale('en')->format('d-M-Y');
+            $wynik = [];
+            foreach (self::SKRZYNKI_DO_OTWARCIA as $mail) {
+                try {
+                    $imap = new \App\Services\ImapKlient('h50.seohost.pl', 993, $mail, 'Harnas1!', 10);
+                    $wynik[] = [
+                        'mail' => $mail,
+                        'do_otwarcia' => count($imap->szukaj('SINCE '.$dzis.' NOT DELETED FROM "osp-harnas.pl"')),
+                        'wszystkie' => count($imap->szukaj('NOT DELETED FROM "osp-harnas.pl"')),
+                    ];
+                    $imap->rozlacz();
+                } catch (\Exception $e) {
+                    $wynik[] = ['mail' => $mail, 'blad' => $e->getMessage()];
+                }
+            }
+
+            return ['skrzynki' => $wynik, 'czas' => now('Europe/Warsaw')->format('H:i:s')];
+        });
+
+        return response()->json($dane);
+    }
+
     // Przekierowania poczty ze skrzynki harnas@ (CRON harnas:przekierowania)
     public function przekierowania()
     {
